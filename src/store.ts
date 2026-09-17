@@ -5,7 +5,7 @@ import { ApiError, api } from './api'
 
 const deleteImageFile = (file: string) => void api.deleteImage(file).catch(() => undefined)
 
-export type StepKey = 'identite' | 'miranda' | 'fouille' | 'comportement' | 'sanction' | 'rapport' | 'fiche'
+export type StepKey = 'identite' | 'miranda' | 'fouille' | 'comportement' | 'sanction' | 'rapport' | 'checklist' | 'fiche'
 export type SlotKey = 'sceneScreens' | 'photo' | 'identite' | 'fouilleScreens' | 'amendesScreens' | 'casierScreens'
 export type SuspectSlot = Exclude<SlotKey, 'sceneScreens'>
 
@@ -47,6 +47,7 @@ export const STEP_DEFAULT_SLOT: Record<StepKey, SuspectSlot> = {
   comportement: 'fouilleScreens',
   sanction: 'amendesScreens',
   rapport: 'amendesScreens',
+  checklist: 'amendesScreens',
   fiche: 'amendesScreens'
 }
 
@@ -89,6 +90,7 @@ export function newSuspect(): Suspect {
     menace: false,
     menacePhrase: '',
     accusations: [],
+    checklist: [],
     notes: '',
     amendesScreens: [],
     casierScreens: [],

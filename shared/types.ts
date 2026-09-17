@@ -62,6 +62,8 @@ export interface Suspect {
   menace: boolean
   menacePhrase: string
   accusations: string[]
+  /** Points cochés dans la checklist de fin de procédure. */
+  checklist: string[]
   notes: string
   amendesScreens: ImageRef[]
   casierScreens: ImageRef[]

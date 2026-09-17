@@ -2294,3 +2294,159 @@ kbd {
 .agent-message .input {
   flex: 1;
 }
+
+/* ---------- Checklist de fin de procédure ---------- */
+
+.checklist-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: var(--radius);
+  border: 1px solid var(--accent-border);
+  background: linear-gradient(90deg, rgba(59, 110, 230, 0.16), rgba(59, 110, 230, 0.04));
+}
+.checklist-head svg {
+  color: var(--accent-text);
+  flex-shrink: 0;
+}
+.checklist-head strong {
+  display: block;
+  font-family: var(--title);
+  font-weight: 700;
+  font-size: 15px;
+}
+.checklist-head span {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.checklist-head.fini {
+  border-color: var(--green-border);
+  background: linear-gradient(90deg, rgba(63, 184, 103, 0.16), rgba(63, 184, 103, 0.04));
+}
+.checklist-head.fini svg {
+  color: var(--green);
+}
+.checklist-actions {
+  margin-left: auto;
+}
+
+.checklist-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.checklist-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.checklist-card:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+.checklist-card.complet {
+  border-color: var(--green-border);
+}
+.checklist-card header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.checklist-card h3 {
+  font-family: var(--title);
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.checklist-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--title);
+  font-weight: 800;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.checklist-compte {
+  margin-left: auto;
+  font-family: var(--title);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--muted);
+}
+.checklist-card.complet .checklist-compte {
+  color: #7fdc9f;
+}
+.checklist-points {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.checklist-point {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 9px 10px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  color: var(--text-2);
+  font-size: 13.5px;
+}
+.checklist-point:hover {
+  background: var(--panel-2);
+}
+.checklist-point.on {
+  color: var(--text);
+  background: rgba(63, 184, 103, 0.07);
+  border-color: var(--green-border);
+}
+.checklist-box {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid #3a3a42;
+  background: #0c0c0e;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.checklist-point.on .checklist-box {
+  background: var(--green);
+  border-color: var(--green);
+  color: #08210f;
+}
+
+.checklist-foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-radius: var(--radius);
+  border: 1px solid var(--amber-border);
+  background: var(--amber-soft);
+  color: #ffd08a;
+  font-family: var(--title);
+  font-weight: 700;
+}
+.checklist-foot.fini {
+  border-color: var(--green-border);
+  background: var(--green-soft);
+  color: #7fdc9f;
+}
+
+@media (max-width: 1250px) {
+  .checklist-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -6,6 +6,7 @@ import {
   ClipboardCopy,
   ClipboardList,
   FileText,
+  ListChecks,
   Fingerprint,
   Gavel,
   IdCard,
@@ -22,6 +23,7 @@ import type { Intervention, Settings, Suspect } from '@shared/types'
 import { type StepKey, interventionImages, interventionTitle, suspectName, useStore } from '../store'
 import { COMPORTEMENTS, COOPERATION, REPORT_LIMIT, SAISIE_GROUPS, type Check, checkSuspect, generateReport, lowerFirst, stepState } from '../report'
 import { INFRACTIONS, accusationSuggestions } from '../data/infractions'
+import { CHECKLIST, CHECKLIST_TOTAL } from '../data/checklist'
 import { legalityFor, legalityLabel, legalityTone, useWeaponsLoaded } from '../weapons'
 import { dateFr, heureFr, joinFr, money, nowHm, todayIso } from '../lib/format'
 import { Badge, ChipsInput, ConfirmButton, Empty, Field, PageHeader, Panel, Segmented, TextArea, TextInput, Toggle } from '../components/ui'
@@ -36,6 +38,7 @@ const STEPS: { key: StepKey; label: string; icon: typeof IdCard }[] = [
   { key: 'comportement', label: 'Comportement & accusations', icon: Scale },
   { key: 'sanction', label: 'Amendes & casier', icon: Gavel },
   { key: 'rapport', label: 'Rapport', icon: FileText },
+  { key: 'checklist', label: 'Checklist fin de procédure', icon: ListChecks },
   { key: 'fiche', label: 'Fiche résumé', icon: ClipboardList }
 ]
 
@@ -294,6 +297,7 @@ function SuspectView(props: { intervention: Intervention; suspect: Suspect; step
         {step === 'comportement' && <ComportementStep s={s} set={set} />}
         {step === 'sanction' && <SanctionStep i={i} s={s} />}
         {step === 'rapport' && <RapportStep i={i} s={s} set={set} checks={checks} />}
+        {step === 'checklist' && <ChecklistStep s={s} set={set} />}
         {step === 'fiche' && <FicheStep i={i} s={s} />}
 
         <div className="step-nav">
@@ -819,6 +823,80 @@ function FicheStep({ i, s }: { i: Intervention; s: Suspect }) {
       {viewer !== null && screens[viewer] && (
         <Lightbox images={screens} index={viewer} onIndex={setViewer} onClose={() => setViewer(null)} />
       )}
+    </div>
+  )
+}
+
+/** Checklist officielle à passer avant de fermer la procédure. */
+function ChecklistStep({ s, set }: { s: Suspect; set: SetSuspect }) {
+  const coches = s.checklist ?? []
+  const fait = (id: string) => coches.includes(id)
+  const total = coches.length
+  const fini = total >= CHECKLIST_TOTAL
+
+  function basculer(id: string) {
+    set((cur) => {
+      const liste = cur.checklist ?? []
+      return { checklist: liste.includes(id) ? liste.filter((x) => x !== id) : [...liste, id] }
+    })
+  }
+
+  return (
+    <div className="stack">
+      <div className={`checklist-head ${fini ? 'fini' : ''}`}>
+        <ListChecks size={22} />
+        <div>
+          <strong>Avant de fermer la procédure, pose-toi ces questions</strong>
+          <span>
+            {total} / {CHECKLIST_TOTAL} vérifié{total > 1 ? 's' : ''}
+          </span>
+        </div>
+        <div className="checklist-actions">
+          {fini ? (
+            <button type="button" className="btn" onClick={() => set({ checklist: [] })}>
+              <RotateCcw size={15} /> Tout décocher
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => set({ checklist: CHECKLIST.flatMap((g) => g.points.map((p) => p.id)) })}
+            >
+              <CheckCircle2 size={15} /> Tout cocher
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="checklist-grid">
+        {CHECKLIST.map((g, n) => {
+          const faits = g.points.filter((p) => fait(p.id)).length
+          return (
+            <section className={`checklist-card ${faits === g.points.length ? 'complet' : ''}`} key={g.id}>
+              <header>
+                <span className="checklist-num">{n + 1}</span>
+                <h3>{g.titre}</h3>
+                <span className="checklist-compte">
+                  {faits}/{g.points.length}
+                </span>
+              </header>
+              <div className="checklist-points">
+                {g.points.map((p) => (
+                  <button type="button" key={p.id} className={`checklist-point ${fait(p.id) ? 'on' : ''}`} onClick={() => basculer(p.id)}>
+                    <span className="checklist-box">{fait(p.id) && <CheckCircle2 size={14} strokeWidth={3} />}</span>
+                    {p.texte}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )
+        })}
+      </div>
+
+      <div className={`checklist-foot ${fini ? 'fini' : ''}`}>
+        {fini ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
+        <span>{fini ? 'Tout est vérifié, tu peux fermer la procédure.' : 'Un doute ? Vérifie avant de fermer la procédure.'}</span>
+      </div>
     </div>
   )
 }

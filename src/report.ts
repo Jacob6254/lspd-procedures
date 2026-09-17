@@ -2,6 +2,7 @@ import type { Cooperation, Intervention, Saisie, Settings, Suspect, Weapon } fro
 import type { StepKey } from './store'
 import { capitalize, dateFr, heureFr, joinFr, money, sentence } from './lib/format'
 import { legalityFor } from './weapons'
+import { CHECKLIST_TOTAL } from './data/checklist'
 
 export const REPORT_LIMIT = 1000
 
@@ -222,6 +223,7 @@ export function checkSuspect(i: Intervention, s: Suspect, settings: Settings, we
   if (s.menace && !s.menacePhrase.trim()) add('error', 'comportement', 'Menace sur agent retenue : il manque la phrase exacte.')
   if (s.accusations.length === 0) add('error', 'comportement', 'Aucune accusation retenue.')
 
+  if ((s.checklist?.length ?? 0) < CHECKLIST_TOTAL) add('warn', 'checklist', 'Checklist de fin de procédure non terminée.')
   if (s.amendesScreens.length === 0) add('warn', 'sanction', 'Pas de screen des amendes.')
   if (s.casierScreens.length === 0) add('warn', 'sanction', 'Pas de screen de l’ajout au casier.')
   return out
