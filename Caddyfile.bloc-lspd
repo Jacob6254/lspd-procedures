@@ -1,0 +1,8 @@
+# Bloc à ajouter dans infra/Caddyfile du dépôt Kaelo (pas directement sur le serveur).
+# Remplace lspd-procedures.duckdns.org par TON domaine (pas un chemin sous kaelohub.duckdns.org).
+lspd-procedures.duckdns.org {
+	request_body {
+		max_size 30MB
+	}
+	reverse_proxy lspd-procedures-web:3000
+}

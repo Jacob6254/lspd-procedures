@@ -1,0 +1,27 @@
+# VPS partagé avec Kaelo Hub : aucun port publié, tout passe par le Caddy partagé via le réseau « edge ».
+# Nom du service préfixé : sur « edge », les noms courts (web, bot, minio) appartiennent à Kaelo.
+services:
+  lspd-procedures-web:
+    build: .
+    container_name: lspd-procedures-web
+    restart: unless-stopped
+    environment:
+      NODE_OPTIONS: --max-old-space-size=256
+    volumes:
+      - lspd-data:/data
+    networks:
+      edge:
+        aliases:
+          - lspd-procedures-web
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
+networks:
+  edge:
+    external: true
+    name: edge
+
+volumes:
+  lspd-data:
