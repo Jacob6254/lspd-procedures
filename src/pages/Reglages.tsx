@@ -98,8 +98,8 @@ function Inscriptions() {
             value={cfg?.inscription ?? 'ferme'}
             onChange={(v) => void maj({ inscription: v })}
             options={[
-              { value: 'code' as const, label: 'Avec le lien', hint: 'recommandé' },
-              { value: 'ouvert' as const, label: 'Tout le monde' },
+              { value: 'ouvert' as const, label: 'Tout le monde', hint: 'sans code' },
+              { value: 'code' as const, label: 'Seulement avec le lien', hint: 'avec un code' },
               { value: 'ferme' as const, label: 'Personne' }
             ]}
           />
@@ -129,8 +129,8 @@ function Inscriptions() {
         )}
 
         <p className="muted small">
-          Avec le lien, ton collègue choisit son matricule et son mot de passe et arrive en simple agent : tu n’as rien à créer. « Personne » coupe
-          l’inscription, « Tout le monde » laisse s’inscrire n’importe qui connaissant l’adresse.
+          « Tout le monde » : tu envoies l’adresse du site, ton collègue choisit son matricule et son mot de passe, et il arrive en simple agent.
+          « Seulement avec le lien » ajoute un code dans le lien, au cas où l’adresse traînerait ailleurs. « Personne » coupe l’inscription.
         </p>
       </div>
     </Panel>

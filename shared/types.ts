@@ -130,6 +130,8 @@ export type ModeInscription = 'ferme' | 'code' | 'ouvert'
 export interface ConfigInscription {
   inscription: ModeInscription
   code: string
+  /** Version du réglage, pour les mises à jour automatiques. */
+  v?: number
 }
 
 export interface SupervisionNote {

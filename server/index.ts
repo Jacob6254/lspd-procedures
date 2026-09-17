@@ -74,8 +74,13 @@ function validUsername(u: unknown): u is string {
 const configFile = join(DATA_DIR, 'config.json')
 const config: ConfigInscription = existsSync(configFile)
   ? JSON.parse(readFileSync(configFile, 'utf8'))
-  : { inscription: 'code', code: randomBytes(5).toString('hex') }
-if (!existsSync(configFile)) writeFileSync(configFile, JSON.stringify(config), 'utf8')
+  : { inscription: 'ouvert', code: randomBytes(5).toString('hex') }
+// Les installations d'avant passaient par un code : on ouvre l'inscription, comme le nouveau réglage par défaut.
+if (config.v !== 2) {
+  config.inscription = 'ouvert'
+  config.v = 2
+}
+writeFileSync(configFile, JSON.stringify(config), 'utf8')
 
 const saveConfig = () => writeJsonAtomic(configFile, config)
 
