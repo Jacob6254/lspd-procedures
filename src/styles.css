@@ -2450,3 +2450,12 @@ kbd {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.login-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.login-tabs .segment {
+  justify-content: center;
+}

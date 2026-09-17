@@ -125,6 +125,13 @@ export interface AccountInfo extends Me {
   createdAt: string
 }
 
+export type ModeInscription = 'ferme' | 'code' | 'ouvert'
+
+export interface ConfigInscription {
+  inscription: ModeInscription
+  code: string
+}
+
 export interface SupervisionNote {
   id: string
   from: string

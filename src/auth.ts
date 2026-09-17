@@ -1,11 +1,12 @@
 import { create } from 'zustand'
-import type { Me } from '@shared/types'
+import type { Me, ModeInscription } from '@shared/types'
 import { api, setUnauthorizedHandler } from './api'
 import { flushNow } from './store'
 
 interface AuthState {
   status: 'loading' | 'setup' | 'login' | 'ready' | 'offline'
   me: Me | null
+  inscription: ModeInscription
   expired: boolean
   check(): Promise<void>
   loggedIn(me: Me): boolean
@@ -15,11 +16,13 @@ interface AuthState {
 export const useAuth = create<AuthState>((set, get) => ({
   status: 'loading',
   me: null,
+  inscription: 'ferme',
   expired: false,
 
   async check() {
     try {
       const s = await api.status()
+      set({ inscription: s.inscription })
       if (s.setup) set({ status: 'setup', me: null })
       else if (!s.me) set({ status: 'login', me: null })
       else set({ status: 'ready', me: s.me })

@@ -51,6 +51,12 @@ export const STEP_DEFAULT_SLOT: Record<StepKey, SuspectSlot> = {
   fiche: 'amendesScreens'
 }
 
+/** Matricule choisi à l'inscription, repris dans les réglages au premier chargement. */
+let matriculeInscription = ''
+export function setMatriculeInscription(v: string): void {
+  matriculeInscription = v
+}
+
 export const defaultSettings: Settings = {
   matricule: '',
   nomAgent: '',
@@ -195,6 +201,7 @@ export const useStore = create<State>((set, get) => ({
     const loaded = db
       ? { ...base, ...db, settings: { ...defaultSettings, ...db.settings }, learned: { ...base.learned, ...db.learned } }
       : base
+    if (!loaded.settings.matricule && matriculeInscription) loaded.settings = { ...loaded.settings, matricule: matriculeInscription }
     set({ db: loaded, rev: db?.rev ?? 0, ready: true, route: loaded.settings.matricule ? { page: 'accueil' } : { page: 'reglages' } })
   },
 

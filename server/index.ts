@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { mkdir, readFile, rename, rm, unlink, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { AccountInfo, AgentSummary, Db, ImageRef, Me, SupervisionNote, WeaponData } from '../shared/types'
+import type { AccountInfo, AgentSummary, ConfigInscription, Db, ImageRef, Me, ModeInscription, SupervisionNote, WeaponData } from '../shared/types'
 
 const PORT = Number(process.env.PORT ?? 3000)
 const DATA_DIR = resolve(process.env.DATA_DIR ?? 'data')
@@ -66,7 +66,36 @@ async function checkPassword(password: string, acc: Account): Promise<boolean> {
 const toMe = (a: Account): Me => ({ id: a.id, username: a.username, role: a.role })
 
 function validUsername(u: unknown): u is string {
-  return typeof u === 'string' && /^[a-zA-Z0-9_.-]{3,32}$/.test(u)
+  return typeof u === 'string' && /^[a-zA-Z0-9_.-]{2,32}$/.test(u)
+}
+
+// ---------- Inscription des agents ----------
+
+const configFile = join(DATA_DIR, 'config.json')
+const config: ConfigInscription = existsSync(configFile)
+  ? JSON.parse(readFileSync(configFile, 'utf8'))
+  : { inscription: 'code', code: randomBytes(5).toString('hex') }
+if (!existsSync(configFile)) writeFileSync(configFile, JSON.stringify(config), 'utf8')
+
+const saveConfig = () => writeJsonAtomic(configFile, config)
+
+// Pas plus de 5 inscriptions par heure et par adresse.
+const inscriptions = new Map<string, { count: number; until: number }>()
+
+function tropDInscriptions(ip: string): boolean {
+  const f = inscriptions.get(ip)
+  if (!f || f.until <= Date.now()) {
+    inscriptions.delete(ip)
+    return false
+  }
+  return f.count >= 5
+}
+
+function noteInscription(ip: string): void {
+  const now = Date.now()
+  const f = inscriptions.get(ip)
+  if (!f || f.until <= now) inscriptions.set(ip, { count: 1, until: now + 60 * 60 * 1000 })
+  else f.count++
 }
 
 function validPassword(p: unknown): p is string {
@@ -306,7 +335,68 @@ api.get('/health', (_req, res) => {
 })
 
 api.get('/status', (req, res) => {
-  res.json({ setup: accounts.length === 0, me: req.account ? toMe(req.account) : null })
+  res.setHeader('Cache-Control', 'no-store')
+  res.json({ setup: accounts.length === 0, me: req.account ? toMe(req.account) : null, inscription: config.inscription })
+})
+
+// Un agent crée lui-même son compte à partir du lien donné par l'admin.
+api.post('/register', async (req, res) => {
+  if (accounts.length === 0) {
+    res.status(409).json({ error: 'Le compte administrateur doit être créé en premier' })
+    return
+  }
+  if (config.inscription === 'ferme') {
+    res.status(403).json({ error: 'Les inscriptions sont fermées. Demande à ton admin de te créer un compte.' })
+    return
+  }
+  const ip = req.ip ?? 'inconnu'
+  if (tropDInscriptions(ip)) {
+    res.status(429).json({ error: 'Trop de comptes créés depuis cette connexion. Réessaie plus tard.' })
+    return
+  }
+  const { username, password, code } = req.body ?? {}
+  if (config.inscription === 'code' && code !== config.code) {
+    res.status(403).json({ error: 'Lien d’inscription invalide. Redemande le lien à ton admin.' })
+    return
+  }
+  if (!validUsername(username)) {
+    res.status(400).json({ error: 'Matricule : 2 à 32 caractères (lettres, chiffres, . _ -)' })
+    return
+  }
+  if (accounts.some((a) => a.username.toLowerCase() === username.toLowerCase())) {
+    res.status(409).json({ error: 'Ce matricule a déjà un compte' })
+    return
+  }
+  if (!validPassword(password)) {
+    res.status(400).json({ error: 'Mot de passe : 8 caractères minimum' })
+    return
+  }
+  const acc: Account = {
+    id: randomUUID(),
+    username,
+    role: 'user',
+    ...(await hashPassword(password)),
+    tokenVersion: 1,
+    createdAt: new Date().toISOString()
+  }
+  accounts.push(acc)
+  await saveAccounts()
+  noteInscription(ip)
+  setSession(req, res, acc)
+  res.json(toMe(acc))
+})
+
+api.get('/config', requireAuth, requireAdmin, (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store')
+  res.json(config)
+})
+
+api.put('/config', requireAuth, requireAdmin, async (req, res) => {
+  const mode = req.body?.inscription as ModeInscription
+  if (mode && ['ferme', 'code', 'ouvert'].includes(mode)) config.inscription = mode
+  if (req.body?.nouveauCode === true) config.code = randomBytes(5).toString('hex')
+  await saveConfig()
+  res.json(config)
 })
 
 api.post('/setup', async (req, res) => {

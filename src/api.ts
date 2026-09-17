@@ -1,4 +1,4 @@
-import type { AccountInfo, AgentSummary, Db, ImageRef, Me, SupervisionNote, WeaponData } from '@shared/types'
+import type { AccountInfo, AgentSummary, ConfigInscription, Db, ImageRef, Me, ModeInscription, SupervisionNote, WeaponData } from '@shared/types'
 
 export class ApiError extends Error {
   constructor(
@@ -68,7 +68,10 @@ async function pngBlob(file: string): Promise<Blob> {
 }
 
 export const api = {
-  status: () => request<{ setup: boolean; me: Me | null }>('GET', '/status'),
+  status: () => request<{ setup: boolean; me: Me | null; inscription: ModeInscription }>('GET', '/status'),
+  register: (username: string, password: string, code: string) => request<Me>('POST', '/register', { username, password, code }),
+  getConfig: () => request<ConfigInscription>('GET', '/config'),
+  setConfig: (patch: { inscription?: ModeInscription; nouveauCode?: boolean }) => request<ConfigInscription>('PUT', '/config', patch),
   setup: (username: string, password: string) => request<Me>('POST', '/setup', { username, password }),
   login: (username: string, password: string) => request<Me>('POST', '/login', { username, password }),
   logout: () => request<{ ok: true }>('POST', '/logout', {}),

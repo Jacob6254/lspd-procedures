@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Camera, KeyRound, LogOut, Settings, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react'
-import type { AccountInfo } from '@shared/types'
+import { Camera, Copy, KeyRound, Link2, LogOut, RefreshCw, Settings, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react'
+import type { AccountInfo, ConfigInscription } from '@shared/types'
 import { useStore } from '../store'
 import { useAuth } from '../auth'
 import { api } from '../api'
@@ -64,6 +64,75 @@ function MonCompte() {
       <button type="button" className="btn" style={{ marginTop: 14 }} disabled={busy || !current || !next} onClick={() => void change()}>
         <KeyRound size={15} /> Changer le mot de passe
       </button>
+    </Panel>
+  )
+}
+
+function Inscriptions() {
+  const toast = useStore((s) => s.toast)
+  const [cfg, setCfg] = useState<ConfigInscription | null>(null)
+
+  useEffect(() => {
+    api
+      .getConfig()
+      .then(setCfg)
+      .catch(() => undefined)
+  }, [])
+
+  async function maj(patch: { inscription?: ConfigInscription['inscription']; nouveauCode?: boolean }) {
+    try {
+      setCfg(await api.setConfig(patch))
+      toast('ok', patch.nouveauCode ? 'Nouveau lien créé : l’ancien ne marche plus.' : 'Réglage enregistré.')
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Enregistrement impossible')
+    }
+  }
+
+  const lien = cfg ? (cfg.inscription === 'code' ? `${location.origin}/?code=${cfg.code}` : location.origin) : ''
+
+  return (
+    <Panel title="Inscription des agents" icon={Link2} className="panel-wide">
+      <div className="stack gap-16">
+        <Field label="Qui peut créer un compte ?" wide>
+          <Segmented
+            value={cfg?.inscription ?? 'ferme'}
+            onChange={(v) => void maj({ inscription: v })}
+            options={[
+              { value: 'code' as const, label: 'Avec le lien', hint: 'recommandé' },
+              { value: 'ouvert' as const, label: 'Tout le monde' },
+              { value: 'ferme' as const, label: 'Personne' }
+            ]}
+          />
+        </Field>
+
+        {cfg?.inscription !== 'ferme' && (
+          <Field label={cfg?.inscription === 'code' ? 'Lien à envoyer à tes collègues' : 'Adresse du site'} wide>
+            <div className="row gap-8">
+              <input className="input" readOnly value={lien} onFocus={(e) => e.currentTarget.select()} />
+              <button
+                type="button"
+                className="btn"
+                onClick={async () => {
+                  await api.copyText(lien)
+                  toast('ok', 'Lien copié.')
+                }}
+              >
+                <Copy size={15} /> Copier
+              </button>
+              {cfg?.inscription === 'code' && (
+                <button type="button" className="btn" onClick={() => void maj({ nouveauCode: true })}>
+                  <RefreshCw size={15} /> Nouveau lien
+                </button>
+              )}
+            </div>
+          </Field>
+        )}
+
+        <p className="muted small">
+          Avec le lien, ton collègue choisit son matricule et son mot de passe et arrive en simple agent : tu n’as rien à créer. « Personne » coupe
+          l’inscription, « Tout le monde » laisse s’inscrire n’importe qui connaissant l’adresse.
+        </p>
+      </div>
     </Panel>
   )
 }
@@ -188,7 +257,10 @@ function Comptes() {
         <button type="button" className="btn btn-primary" disabled={username.trim().length < 3 || password.length < 8} onClick={() => void create()}>
           <UserPlus size={15} /> Créer le compte
         </button>
-        <p className="muted small">Chaque compte a ses propres dossiers et screens. Personne ne voit ceux des autres, même pas l’admin.</p>
+        <p className="muted small">
+          Utile surtout pour créer un autre admin : les simples agents peuvent s’inscrire seuls avec le lien ci-dessus. Chaque compte a ses propres
+          dossiers et screens.
+        </p>
       </div>
     </Panel>
   )
@@ -240,6 +312,8 @@ export function ReglagesPage() {
         </Panel>
 
         <MonCompte />
+
+        {me?.role === 'admin' && <Inscriptions />}
 
         {me?.role === 'admin' && <Comptes />}
       </div>
