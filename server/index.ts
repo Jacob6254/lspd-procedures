@@ -123,18 +123,29 @@ declare module 'express-serve-static-core' {
 
 // ---------- Anti force brute sur la connexion ----------
 
+// 5 essais ratés = 20 secondes d'attente, puis on repart à zéro.
+const LOGIN_MAX = 5
+const LOGIN_PAUSE_MS = 20_000
 const failures = new Map<string, { count: number; until: number }>()
 
 function tooManyAttempts(ip: string): boolean {
   const f = failures.get(ip)
-  return !!f && f.count >= 5 && f.until > Date.now()
+  if (!f) return false
+  if (f.until <= Date.now()) {
+    failures.delete(ip)
+    return false
+  }
+  return f.count >= LOGIN_MAX
 }
 
 function recordFailure(ip: string): void {
-  const f = failures.get(ip)
   const now = Date.now()
-  if (!f || f.until < now) failures.set(ip, { count: 1, until: now + 10 * 60 * 1000 })
-  else f.count++
+  const f = failures.get(ip)
+  if (!f || f.until <= now) failures.set(ip, { count: 1, until: now + LOGIN_PAUSE_MS })
+  else {
+    f.count++
+    f.until = now + LOGIN_PAUSE_MS
+  }
 }
 
 // ---------- Données par utilisateur ----------
@@ -322,7 +333,7 @@ api.post('/setup', async (req, res) => {
 api.post('/login', async (req, res) => {
   const ip = req.ip ?? 'inconnu'
   if (tooManyAttempts(ip)) {
-    res.status(429).json({ error: 'Trop d’essais. Réessaie dans 10 minutes.' })
+    res.status(429).json({ error: 'Trop d’essais. Réessaie dans 20 secondes.' })
     return
   }
   const { username, password } = req.body ?? {}
