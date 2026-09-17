@@ -14,15 +14,15 @@ Ce guide respecte les règles du VPS partagé avec **Kaelo Hub**. Il ne touche �
 
 Il te faut ton **propre** domaine : pas `kaelohub.duckdns.org`, ni un chemin dessous. Le plus simple est un nouveau sous-domaine gratuit sur **duckdns.org**, par exemple `lspd-procedures.duckdns.org`, qui pointe vers l'IP du VPS.
 
-## 2. Envoyer le site sur le VPS
+## 2. Récupérer le site sur le VPS
 
-Envoie `lspd-web.zip` (sur ton Bureau) dans `/opt/` avec **WinSCP** ou **FileZilla**, puis en SSH :
+Le code est sur GitHub, dans un dépôt public : pas de clé ni de mot de passe à gérer.
 
 ```bash
-sudo mkdir -p /opt/lspd-procedures && sudo unzip -o /opt/lspd-web.zip -d /opt/lspd-procedures && cd /opt/lspd-procedures
+sudo git clone https://github.com/Jacob6254/lspd-procedures.git /opt/lspd-procedures && cd /opt/lspd-procedures
 ```
 
-Si `unzip` n'est pas installé : `sudo apt install -y unzip`.
+Si `git` n'est pas installé : `sudo apt install -y git`.
 
 ## 3. Démarrer le site
 
@@ -64,13 +64,13 @@ Ensuite, dans **Réglages → Comptes des collègues**, crée le compte de ton c
 
 ## Au quotidien (toujours depuis `/opt/lspd-procedures`)
 
-**Mettre à jour le site** avec un nouveau zip :
+**Mettre à jour le site** quand je pousse une nouvelle version :
 
 ```bash
-cd /opt/lspd-procedures && sudo unzip -o /opt/lspd-web.zip -d /opt/lspd-procedures && docker compose up -d --build
+cd /opt/lspd-procedures && sudo git pull && docker compose up -d --build
 ```
 
-Les dossiers, screens et comptes restent dans le volume, ils ne sont pas touchés.
+Les dossiers, screens et comptes restent dans le volume Docker, ils ne sont pas touchés.
 
 **Sauvegarder** les dossiers, screens et comptes :
 
