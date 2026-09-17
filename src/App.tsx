@@ -11,6 +11,11 @@ import { AccueilPage } from './pages/Accueil'
 import { DossierPage } from './pages/Dossier'
 import { HistoriquePage } from './pages/Historique'
 import { ArmesPage } from './pages/Armes'
+import { CodesRadioPage } from './pages/CodesRadio'
+import { SupervisionPage } from './pages/Supervision'
+import { NotesBanner } from './components/NotesBanner'
+import { ControlBanner } from './components/ControlBanner'
+import { hasUnsavedChanges } from './store'
 import { ScreensPage } from './pages/Screens'
 import { ReglagesPage } from './pages/Reglages'
 import { LoginPage } from './pages/Login'
@@ -37,6 +42,23 @@ function Workspace() {
     if (!exists) go({ page: 'accueil' })
   }, [exists, go])
 
+  // Suivi en direct : si l'autre personne (agent ou superviseur) modifie le dossier, on récupère sa version.
+  useEffect(() => {
+    const t = setInterval(async () => {
+      if (document.hidden || hasUnsavedChanges()) return
+      try {
+        const { rev } = await api.dbState()
+        const st = useStore.getState()
+        if (rev === st.rev) return
+        st.replaceDb(await api.loadDb())
+        st.toast('info', 'Dossier mis à jour à l’instant.')
+      } catch {
+        // hors ligne : on réessaiera au prochain tour
+      }
+    }, 4000)
+    return () => clearInterval(t)
+  }, [])
+
   if (error) {
     return (
       <div className="splash">
@@ -56,10 +78,14 @@ function Workspace() {
     <div className="app">
       <Sidebar />
       <main className="main">
+        <ControlBanner />
+        <NotesBanner />
         {route.page === 'accueil' && <AccueilPage />}
         {route.page === 'dossier' && <DossierPage key={route.id} id={route.id} tab={route.tab} step={route.step} />}
         {route.page === 'historique' && <HistoriquePage />}
         {route.page === 'armes' && <ArmesPage />}
+        {route.page === 'radio' && <CodesRadioPage />}
+        {route.page === 'supervision' && <SupervisionPage />}
         {route.page === 'screens' && <ScreensPage />}
         {route.page === 'reglages' && <ReglagesPage />}
       </main>

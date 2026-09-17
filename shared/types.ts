@@ -105,6 +105,8 @@ export interface Settings {
 
 export interface Db {
   version: 1
+  /** Numéro de version géré par le serveur, pour que deux personnes ne s'écrasent pas. */
+  rev?: number
   settings: Settings
   interventions: Intervention[]
   inbox: ImageRef[]
@@ -119,4 +121,23 @@ export interface Me {
 
 export interface AccountInfo extends Me {
   createdAt: string
+}
+
+export interface SupervisionNote {
+  id: string
+  from: string
+  text: string
+  createdAt: string
+  interventionId?: string
+  suspectId?: string
+  lu: boolean
+}
+
+export interface AgentSummary extends Me {
+  interventions: number
+  enCours: number
+  suspects: number
+  screens: number
+  majA: string | null
+  notesNonLues: number
 }

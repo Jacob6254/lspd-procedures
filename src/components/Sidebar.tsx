@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Camera, Crosshair, FileText, Home, Images, LogOut, MonitorUp, Plus, Settings, Timer, X } from 'lucide-react'
+import { Camera, Crosshair, Eye, FileText, Home, Images, LogOut, MonitorUp, Plus, Radio, Settings, Timer, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { type Route, SLOT_LABELS, interventionTitle, suspectName, useSaveStatus, useStore } from '../store'
 import { useScreenShare } from '../capture'
@@ -127,6 +127,14 @@ export function Sidebar() {
         <NavItem icon={FileText} label="Historique" active={is('historique')} onClick={() => go({ page: 'historique' })} />
         <NavItem icon={Images} label="Screens à trier" active={is('screens')} count={inbox} onClick={() => go({ page: 'screens' })} />
         <NavItem icon={Crosshair} label="Répertoire armes" active={is('armes')} onClick={() => go({ page: 'armes' })} />
+        <NavItem icon={Radio} label="Code Radio" active={is('radio')} onClick={() => go({ page: 'radio' })} />
+
+        {me?.role === 'admin' && (
+          <>
+            <div className="nav-section">Supervision</div>
+            <NavItem icon={Eye} label="Procédures des agents" active={is('supervision')} onClick={() => go({ page: 'supervision' })} />
+          </>
+        )}
 
         <div className="nav-section">Préférences</div>
         <NavItem icon={Settings} label="Réglages" active={is('reglages')} onClick={() => go({ page: 'reglages' })} />

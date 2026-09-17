@@ -114,7 +114,7 @@ export function Lightbox(props: {
   index: number
   onIndex: (i: number) => void
   onClose: () => void
-  onDelete: (img: ImageRef) => void
+  onDelete?: (img: ImageRef) => void
 }) {
   const toast = useStore((s) => s.toast)
   const img = props.images[props.index]
@@ -155,7 +155,7 @@ export function Lightbox(props: {
           <button type="button" className="btn" onClick={() => api.downloadImage(img.file)}>
             <Download size={15} /> Télécharger
           </button>
-          <ConfirmButton icon={Trash2} label="Supprimer" onConfirm={() => props.onDelete(img)} />
+          {props.onDelete && <ConfirmButton icon={Trash2} label="Supprimer" onConfirm={() => props.onDelete!(img)} />}
           <button type="button" className="btn btn-icon" aria-label="Fermer" onClick={props.onClose}>
             <X size={18} />
           </button>

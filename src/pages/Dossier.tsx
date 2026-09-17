@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   CircleAlert,
   ClipboardCopy,
+  ClipboardList,
   FileText,
   Fingerprint,
   Gavel,
@@ -19,12 +20,13 @@ import {
 } from 'lucide-react'
 import type { Intervention, Settings, Suspect } from '@shared/types'
 import { type StepKey, interventionImages, interventionTitle, suspectName, useStore } from '../store'
-import { COMPORTEMENTS, COOPERATION, REPORT_LIMIT, type Check, checkSuspect, generateReport, lowerFirst, stepState } from '../report'
-import { useWeaponsLoaded } from '../weapons'
-import { dateFr, heureFr, joinFr, nowHm, todayIso } from '../lib/format'
-import { ChipsInput, ConfirmButton, Field, PageHeader, Panel, Segmented, TextArea, TextInput, Toggle } from '../components/ui'
-import { ScreenSlot } from '../components/ScreenSlot'
-import { api } from '../api'
+import { COMPORTEMENTS, COOPERATION, REPORT_LIMIT, SAISIE_GROUPS, type Check, checkSuspect, generateReport, lowerFirst, stepState } from '../report'
+import { INFRACTIONS, accusationSuggestions } from '../data/infractions'
+import { legalityFor, legalityLabel, legalityTone, useWeaponsLoaded } from '../weapons'
+import { dateFr, heureFr, joinFr, money, nowHm, todayIso } from '../lib/format'
+import { Badge, ChipsInput, ConfirmButton, Empty, Field, PageHeader, Panel, Segmented, TextArea, TextInput, Toggle } from '../components/ui'
+import { Lightbox, ScreenSlot } from '../components/ScreenSlot'
+import { api, imgUrl } from '../api'
 import { SaisiesEditor } from '../components/SaisiesEditor'
 
 const STEPS: { key: StepKey; label: string; icon: typeof IdCard }[] = [
@@ -33,23 +35,10 @@ const STEPS: { key: StepKey; label: string; icon: typeof IdCard }[] = [
   { key: 'fouille', label: 'Fouille', icon: PackageSearch },
   { key: 'comportement', label: 'Comportement & accusations', icon: Scale },
   { key: 'sanction', label: 'Amendes & casier', icon: Gavel },
-  { key: 'rapport', label: 'Rapport', icon: FileText }
+  { key: 'rapport', label: 'Rapport', icon: FileText },
+  { key: 'fiche', label: 'Fiche résumé', icon: ClipboardList }
 ]
 
-const DEFAULT_ACCUSATIONS = [
-  'Refus d’obtempérer',
-  'Conduite dangereuse',
-  'Port d’arme illégal',
-  'Détention de stupéfiants',
-  'Possession ou transport d’argent sale',
-  'Outrage à agent',
-  'Menace aggravée sur représentant de l’État',
-  'Trouble à l’ordre public',
-  'Agression',
-  'Braquage',
-  'Prise d’otage',
-  'Délit de fuite'
-]
 
 export function DossierPage(props: { id: string; tab: string; step: StepKey }) {
   const intervention = useStore((s) => s.db.interventions.find((i) => i.id === props.id))
@@ -284,7 +273,7 @@ function SuspectView(props: { intervention: Intervention; suspect: Suspect; step
           <button type="button" key={st.key} className={`step ${st.key === step ? 'active' : ''}`} onClick={() => openDossier(i.id, s.id, st.key)}>
             <span className="step-num">{n + 1}</span>
             <span className="step-label">{st.label}</span>
-            {st.key !== 'rapport' && <StepIcon state={stepState(checks, st.key)} />}
+            {st.key !== 'rapport' && st.key !== 'fiche' && <StepIcon state={stepState(checks, st.key)} />}
           </button>
         ))}
         {i.suspects.length > 1 && (
@@ -305,6 +294,7 @@ function SuspectView(props: { intervention: Intervention; suspect: Suspect; step
         {step === 'comportement' && <ComportementStep s={s} set={set} />}
         {step === 'sanction' && <SanctionStep i={i} s={s} />}
         {step === 'rapport' && <RapportStep i={i} s={s} set={set} checks={checks} />}
+        {step === 'fiche' && <FicheStep i={i} s={s} />}
 
         <div className="step-nav">
           {idx > 0 ? (
@@ -423,7 +413,7 @@ function MirandaStep({ i, s, set }: StepProps) {
   const learn = useStore((st) => st.learn)
   const now = useClock()
   const faits = s.accusations.length ? joinFr(s.accusations.map(lowerFirst)) : '[énoncer les faits]'
-  const suggestions = [...learned, ...DEFAULT_ACCUSATIONS.filter((d) => !learned.includes(d))]
+  const suggestions = accusationSuggestions(learned)
 
   return (
     <div className="stack">
@@ -493,7 +483,7 @@ function FouilleStep({ i, s, set }: StepProps) {
 function ComportementStep({ s, set }: { s: Suspect; set: SetSuspect }) {
   const learned = useStore((st) => st.db.learned.accusations)
   const learn = useStore((st) => st.learn)
-  const suggestions = [...learned, ...DEFAULT_ACCUSATIONS.filter((d) => !learned.includes(d))]
+  const suggestions = accusationSuggestions(learned)
 
   return (
     <div className="stack">
@@ -655,6 +645,180 @@ function RapportStep({ i, s, set, checks }: StepProps & { checks: Check[] }) {
         )}
         <p className="muted small">Rouge = risque de vice de procédure. Orange = conseillé. Clique pour aller à l’étape.</p>
       </Panel>
+    </div>
+  )
+}
+
+const TON_CATEGORIE: Record<string, 'grey' | 'amber' | 'red' | 'purple'> = {
+  'Délit mineur': 'grey',
+  'Délit moyen': 'amber',
+  'Délit majeur': 'red',
+  'Délit aggravé': 'red',
+  Crime: 'purple'
+}
+
+/** Fiche de fin de procédure, dans le style de la fiche citoyen du MDT. */
+function FicheStep({ i, s }: { i: Intervention; s: Suspect }) {
+  const settings = useStore((st) => st.db.settings)
+  const toast = useStore((st) => st.toast)
+  const { byId } = useWeaponsLoaded()
+  const [viewer, setViewer] = useState<number | null>(null)
+  const texte = s.rapportManuel ?? generateReport(i, s, settings, byId)
+  const screens = [...s.identite, ...s.fouilleScreens, ...s.amendesScreens, ...s.casierScreens]
+  const photo = s.photo[0]
+  const age = s.naissance ? Math.floor((Date.now() - new Date(s.naissance).getTime()) / 31_557_600_000) : null
+  const groupes = SAISIE_GROUPS.map((g) => ({ ...g, items: s.saisies.filter((x) => x.type === g.type) })).filter((g) => g.items.length)
+  const coop = COOPERATION.find((c) => c.key === s.cooperation)
+
+  return (
+    <div className="fiche-layout">
+      <aside className="fiche-card">
+        <span className="eyebrow blue">Fiche suspect</span>
+        {photo ? (
+          <img className="fiche-photo" src={imgUrl(photo.file)} alt="" onClick={() => setViewer(screens.findIndex((x) => x.id === photo.id))} />
+        ) : (
+          <div className="fiche-photo fiche-photo-vide">
+            <UserRound size={44} />
+          </div>
+        )}
+        <div className="fiche-nom">
+          <span>{s.prenom || '—'}</span>
+          <strong>{s.nom || 'Sans nom'}</strong>
+        </div>
+        <dl className="fiche-rows">
+          <div>
+            <dt>Naissance</dt>
+            <dd>{s.naissance ? `${dateFr(s.naissance)}${age !== null ? ` (${age} ans)` : ''}` : '—'}</dd>
+          </div>
+          <div>
+            <dt>Recherché</dt>
+            <dd className={s.recherche === 'oui' ? 'c-red' : ''}>{s.recherche === null ? 'Non vérifié' : s.recherche === 'oui' ? 'Oui' : 'Non'}</dd>
+          </div>
+          <div>
+            <dt>Bracelet</dt>
+            <dd className={s.bracelet === 'oui' ? 'c-red' : ''}>{s.bracelet === null ? 'Non vérifié' : s.bracelet === 'oui' ? 'Oui' : 'Non'}</dd>
+          </div>
+          <div>
+            <dt>PPA</dt>
+            <dd>{s.ppa === null ? 'Non vérifié' : s.ppa === 0 ? 'Aucun' : `Niveau ${s.ppa}`}</dd>
+          </div>
+          <div>
+            <dt>Coopérativité</dt>
+            <dd>{coop ? coop.label.charAt(0).toUpperCase() + coop.label.slice(1) : '—'}</dd>
+          </div>
+          <div>
+            <dt>Droits lus</dt>
+            <dd className={s.mirandaLusA ? 'c-green' : 'c-amber'}>{s.mirandaLusA ?? 'Non'}</dd>
+          </div>
+        </dl>
+        <div className="fiche-total">
+          <span>{s.accusations.length} inculpation{s.accusations.length > 1 ? 's' : ''}</span>
+          <span>
+            {s.saisies.length} saisie{s.saisies.length > 1 ? 's' : ''}
+          </span>
+        </div>
+      </aside>
+
+      <div className="stack">
+        <Panel title="Inculpations" icon={Scale}>
+          {s.accusations.length === 0 ? (
+            <p className="muted">Aucune accusation retenue.</p>
+          ) : (
+            <div className="fiche-list">
+              {s.accusations.map((a) => {
+                const cat = INFRACTIONS.find((x) => x.label.toLowerCase() === a.toLowerCase())?.categorie
+                return (
+                  <div className="fiche-item" key={a}>
+                    <span>{a}</span>
+                    {cat && <Badge tone={TON_CATEGORIE[cat]}>{cat}</Badge>}
+                  </div>
+                )
+              })}
+              {s.outrage && (
+                <div className="fiche-phrase">
+                  Outrage : « {s.outragePhrase.trim() || '[phrase exacte manquante]'} »
+                </div>
+              )}
+              {s.menace && (
+                <div className="fiche-phrase">
+                  Menace sur agent : « {s.menacePhrase.trim() || '[phrase exacte manquante]'} »
+                </div>
+              )}
+            </div>
+          )}
+        </Panel>
+
+        <Panel title="Objets confisqués" icon={PackageSearch}>
+          {groupes.length === 0 ? (
+            <p className="muted">{s.rienSurLui ? 'Rien d’illégal sur lui.' : 'Fouille non renseignée.'}</p>
+          ) : (
+            <div className="stack gap-12">
+              {groupes.map((g) => (
+                <div key={g.type}>
+                  <span className="eyebrow">{g.title}</span>
+                  <div className="fiche-list">
+                    {g.items.map((x) => {
+                      const w = x.weaponId ? byId.get(x.weaponId) : undefined
+                      const l = w ? legalityFor(w, s) : null
+                      return (
+                        <div className="fiche-item" key={x.id}>
+                          <span>
+                            <strong className="fiche-qty">{x.type === 'argent' ? money(x.quantite ?? 0) : `${x.quantite ?? '?'} ×`}</strong>
+                            {x.type === 'argent' ? ' non déclarés' : ` ${x.label}`}
+                          </span>
+                          {l && <Badge tone={legalityTone(l)}>{legalityLabel(l)}</Badge>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Panel>
+
+        <Panel
+          title="Texte à copier"
+          icon={FileText}
+          right={
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={async () => {
+                await api.copyText(texte)
+                toast('ok', 'Rapport copié.')
+              }}
+            >
+              <ClipboardCopy size={15} /> Copier le rapport
+            </button>
+          }
+        >
+          <pre className="fiche-rapport">{texte}</pre>
+          <div className="report-foot">
+            <span className={texte.length > REPORT_LIMIT ? 'c-red' : 'muted'}>
+              {texte.length} / {REPORT_LIMIT} caractères
+            </span>
+          </div>
+        </Panel>
+
+        <Panel title={`Screens de la procédure (${screens.length})`}>
+          {screens.length === 0 ? (
+            <Empty icon={ClipboardList} title="Aucun screen" />
+          ) : (
+            <div className="slot-grid">
+              {screens.map((img, idx) => (
+                <button type="button" key={img.id} className="thumb" onClick={() => setViewer(idx)}>
+                  <img src={imgUrl(img.file)} alt="" loading="lazy" />
+                </button>
+              ))}
+            </div>
+          )}
+        </Panel>
+      </div>
+
+      {viewer !== null && screens[viewer] && (
+        <Lightbox images={screens} index={viewer} onIndex={setViewer} onClose={() => setViewer(null)} />
+      )}
     </div>
   )
 }

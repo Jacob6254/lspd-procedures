@@ -1,11 +1,11 @@
 import { create } from 'zustand'
 import type { Db, ImageRef, Intervention, Settings, Suspect } from '@shared/types'
 import { nowHm, todayIso, uid } from './lib/format'
-import { api } from './api'
+import { ApiError, api } from './api'
 
 const deleteImageFile = (file: string) => void api.deleteImage(file).catch(() => undefined)
 
-export type StepKey = 'identite' | 'miranda' | 'fouille' | 'comportement' | 'sanction' | 'rapport'
+export type StepKey = 'identite' | 'miranda' | 'fouille' | 'comportement' | 'sanction' | 'rapport' | 'fiche'
 export type SlotKey = 'sceneScreens' | 'photo' | 'identite' | 'fouilleScreens' | 'amendesScreens' | 'casierScreens'
 export type SuspectSlot = Exclude<SlotKey, 'sceneScreens'>
 
@@ -14,6 +14,8 @@ export type Route =
   | { page: 'dossier'; id: string; tab: string; step: StepKey }
   | { page: 'historique' }
   | { page: 'armes' }
+  | { page: 'radio' }
+  | { page: 'supervision' }
   | { page: 'screens' }
   | { page: 'reglages' }
 
@@ -44,7 +46,8 @@ export const STEP_DEFAULT_SLOT: Record<StepKey, SuspectSlot> = {
   fouille: 'fouilleScreens',
   comportement: 'fouilleScreens',
   sanction: 'amendesScreens',
-  rapport: 'amendesScreens'
+  rapport: 'amendesScreens',
+  fiche: 'amendesScreens'
 }
 
 export const defaultSettings: Settings = {
@@ -142,11 +145,13 @@ export function interventionTitle(i: Intervention): string {
 
 interface State {
   ready: boolean
+  rev: number
   db: Db
   route: Route
   captureTarget: CaptureTarget | null
   toasts: Toast[]
   init(db: Db | null): void
+  replaceDb(db: Db | null): void
   go(route: Route): void
   openDossier(id: string, tab?: string, step?: StepKey): void
   createIntervention(): void
@@ -177,6 +182,7 @@ export function getSlot(i: Intervention, target: CaptureTarget): ImageRef[] | nu
 
 export const useStore = create<State>((set, get) => ({
   ready: false,
+  rev: 0,
   db: emptyDb(),
   route: { page: 'accueil' },
   captureTarget: null,
@@ -187,7 +193,16 @@ export const useStore = create<State>((set, get) => ({
     const loaded = db
       ? { ...base, ...db, settings: { ...defaultSettings, ...db.settings }, learned: { ...base.learned, ...db.learned } }
       : base
-    set({ db: loaded, ready: true, route: loaded.settings.matricule ? { page: 'accueil' } : { page: 'reglages' } })
+    set({ db: loaded, rev: db?.rev ?? 0, ready: true, route: loaded.settings.matricule ? { page: 'accueil' } : { page: 'reglages' } })
+  },
+
+  /** Remplace le dossier par celui du serveur (modifié par l'autre personne) sans relancer de sauvegarde. */
+  replaceDb(db) {
+    const base = emptyDb()
+    const loaded = db
+      ? { ...base, ...db, settings: { ...defaultSettings, ...db.settings }, learned: { ...base.learned, ...db.learned } }
+      : base
+    set({ db: loaded, rev: db?.rev ?? 0 })
   },
 
   go(route) {
@@ -350,9 +365,18 @@ function flush(): Promise<void> {
     pending = null
     useSaveStatus.setState({ state: 'saving' })
     try {
-      await api.saveDb(db)
+      const { rev } = await api.saveDb(db, useStore.getState().rev)
+      useStore.setState({ rev })
       useSaveStatus.setState({ state: pending ? 'saving' : 'idle' })
-    } catch {
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        // Quelqu'un d'autre a modifié le dossier : on reprend sa version.
+        const fresh = await api.loadDb().catch(() => null)
+        useStore.getState().replaceDb(fresh)
+        useStore.getState().toast('info', 'Dossier rechargé : il a été modifié de l’autre côté.')
+        useSaveStatus.setState({ state: 'idle' })
+        return
+      }
       // On garde la version la plus récente et on réessaie un peu plus tard.
       pending ??= db
       useSaveStatus.setState({ state: 'error' })
@@ -363,7 +387,8 @@ function flush(): Promise<void> {
 }
 
 useStore.subscribe((state, prev) => {
-  if (!state.ready || state.db === prev.db) return
+  // Une modification venue du serveur change aussi la révision : on ne la renvoie pas.
+  if (!state.ready || state.db === prev.db || state.rev !== prev.rev) return
   pending = state.db
   if (saveTimer) clearTimeout(saveTimer)
   saveTimer = setTimeout(() => void flush(), 400)

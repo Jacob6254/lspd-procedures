@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { mkdir, readFile, rename, rm, unlink, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { AccountInfo, Db, ImageRef, Me, WeaponData } from '../shared/types'
+import type { AccountInfo, AgentSummary, Db, ImageRef, Me, SupervisionNote, WeaponData } from '../shared/types'
 
 const PORT = Number(process.env.PORT ?? 3000)
 const DATA_DIR = resolve(process.env.DATA_DIR ?? 'data')
@@ -142,6 +142,54 @@ function recordFailure(ip: string): void {
 const userDir = (acc: Account) => join(DATA_DIR, 'users', acc.id)
 const screensDir = (acc: Account) => join(userDir(acc), 'screens')
 const dbFile = (acc: Account) => join(userDir(acc), 'db.json')
+const notesFile = (acc: Account) => join(userDir(acc), 'notes.json')
+
+async function readDb(acc: Account): Promise<Db | null> {
+  if (!existsSync(dbFile(acc))) return null
+  try {
+    return JSON.parse(await readFile(dbFile(acc), 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+async function readNotes(acc: Account): Promise<SupervisionNote[]> {
+  if (!existsSync(notesFile(acc))) return []
+  try {
+    return JSON.parse(await readFile(notesFile(acc), 'utf8'))
+  } catch {
+    return []
+  }
+}
+
+// Révision du dossier de chaque agent, pour détecter les modifications de l'autre côté.
+const revs = new Map<string, number>()
+
+async function getRev(acc: Account): Promise<number> {
+  const cached = revs.get(acc.id)
+  if (cached !== undefined) return cached
+  const db = await readDb(acc)
+  const rev = typeof db?.rev === 'number' ? db.rev : 0
+  revs.set(acc.id, rev)
+  return rev
+}
+
+async function saveDbFor(acc: Account, db: Db, rev: number): Promise<{ ok: true; rev: number } | { ok: false; rev: number }> {
+  const current = await getRev(acc)
+  if (rev !== current) return { ok: false, rev: current }
+  const next = current + 1
+  await queueWrite(acc, async () => {
+    await mkdir(userDir(acc), { recursive: true })
+    await writeJsonAtomic(dbFile(acc), { ...db, rev: next })
+  })
+  revs.set(acc.id, next)
+  return { ok: true, rev: next }
+}
+
+function validDb(db: unknown): db is Db {
+  const d = db as Db
+  return !!d && d.version === 1 && Array.isArray(d.interventions) && Array.isArray(d.inbox) && typeof d.settings === 'object'
+}
 
 // Une file d'écriture par utilisateur pour ne jamais mélanger deux sauvegardes.
 const writeQueues = new Map<string, Promise<void>>()
@@ -384,18 +432,23 @@ api.get('/db', requireAuth, async (req, res) => {
   res.type('json').send(await readFile(file, 'utf8'))
 })
 
+api.get('/db/etat', requireAuth, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store')
+  res.json({ rev: await getRev(req.account!) })
+})
+
 api.put('/db', requireAuth, async (req, res) => {
-  const db = req.body as Db
-  if (!db || db.version !== 1 || !Array.isArray(db.interventions) || !Array.isArray(db.inbox) || typeof db.settings !== 'object') {
+  const { db, rev } = req.body ?? {}
+  if (!validDb(db) || typeof rev !== 'number') {
     res.status(400).json({ error: 'Données invalides' })
     return
   }
-  const acc = req.account!
-  await queueWrite(acc, async () => {
-    await mkdir(userDir(acc), { recursive: true })
-    await writeJsonAtomic(dbFile(acc), db)
-  })
-  res.json({ ok: true })
+  const out = await saveDbFor(req.account!, db, rev)
+  if (!out.ok) {
+    res.status(409).json({ error: 'Le dossier a été modifié ailleurs', rev: out.rev })
+    return
+  }
+  res.json({ rev: out.rev })
 })
 
 api.post('/images', requireAuth, express.raw({ type: () => true, limit: '25mb' }), async (req, res) => {
@@ -431,6 +484,155 @@ api.delete('/images/:file', requireAuth, async (req, res) => {
     return
   }
   await unlink(join(screensDir(req.account!), file)).catch(() => undefined)
+  res.json({ ok: true })
+})
+
+// ---------- Supervision (admin) ----------
+
+api.get('/admin/agents', requireAuth, requireAdmin, async (_req, res) => {
+  const list: AgentSummary[] = []
+  for (const acc of accounts) {
+    const db = await readDb(acc)
+    const notes = await readNotes(acc)
+    const interventions = db?.interventions ?? []
+    list.push({
+      ...toMe(acc),
+      interventions: interventions.length,
+      enCours: interventions.filter((i) => i.statut === 'en_cours').length,
+      suspects: interventions.reduce((n, i) => n + i.suspects.length, 0),
+      screens: interventions.reduce(
+        (n, i) =>
+          n +
+          i.sceneScreens.length +
+          i.suspects.reduce((m, s) => m + s.photo.length + s.identite.length + s.fouilleScreens.length + s.amendesScreens.length + s.casierScreens.length, 0),
+        (db?.inbox ?? []).length
+      ),
+      majA: interventions.reduce<string | null>((last, i) => (!last || i.updatedAt > last ? i.updatedAt : last), null),
+      notesNonLues: notes.filter((n) => !n.lu).length
+    })
+  }
+  res.setHeader('Cache-Control', 'no-store')
+  res.json(list)
+})
+
+api.get('/admin/agents/:id/db', requireAuth, requireAdmin, async (req, res) => {
+  const acc = accounts.find((a) => a.id === req.params.id)
+  if (!acc) {
+    res.status(404).json({ error: 'Compte introuvable' })
+    return
+  }
+  res.setHeader('Cache-Control', 'no-store')
+  res.json(await readDb(acc))
+})
+
+api.get('/admin/agents/:id/db/etat', requireAuth, requireAdmin, async (req, res) => {
+  const acc = accounts.find((a) => a.id === req.params.id)
+  if (!acc) {
+    res.status(404).json({ error: 'Compte introuvable' })
+    return
+  }
+  res.setHeader('Cache-Control', 'no-store')
+  res.json({ rev: await getRev(acc) })
+})
+
+// Prise en main : l'admin remplit le dossier à la place de l'agent.
+api.put('/admin/agents/:id/db', requireAuth, requireAdmin, async (req, res) => {
+  const acc = accounts.find((a) => a.id === req.params.id)
+  if (!acc) {
+    res.status(404).json({ error: 'Compte introuvable' })
+    return
+  }
+  const { db, rev } = req.body ?? {}
+  if (!validDb(db) || typeof rev !== 'number') {
+    res.status(400).json({ error: 'Données invalides' })
+    return
+  }
+  const out = await saveDbFor(acc, db, rev)
+  if (!out.ok) {
+    res.status(409).json({ error: 'Le dossier a été modifié ailleurs', rev: out.rev })
+    return
+  }
+  res.json({ rev: out.rev })
+})
+
+api.post('/admin/agents/:id/images', requireAuth, requireAdmin, express.raw({ type: () => true, limit: '25mb' }), async (req, res) => {
+  const acc = accounts.find((a) => a.id === req.params.id)
+  const buf = req.body as Buffer
+  const ext = acc && Buffer.isBuffer(buf) ? imageExt(buf) : null
+  if (!acc || !ext) {
+    res.status(415).json({ error: 'Ce fichier n’est pas une image' })
+    return
+  }
+  await mkdir(screensDir(acc), { recursive: true })
+  const id = randomUUID()
+  const img: ImageRef = { id, file: `${id}.${ext}`, createdAt: new Date().toISOString() }
+  await writeFile(join(screensDir(acc), img.file), buf)
+  res.json(img)
+})
+
+api.delete('/admin/agents/:id/images/:file', requireAuth, requireAdmin, async (req, res) => {
+  const acc = accounts.find((a) => a.id === req.params.id)
+  const file = String(req.params.file)
+  if (!acc || !IMAGE_NAME.test(file)) {
+    res.status(400).end()
+    return
+  }
+  await unlink(join(screensDir(acc), file)).catch(() => undefined)
+  res.json({ ok: true })
+})
+
+api.get('/admin/agents/:id/images/:file', requireAuth, requireAdmin, (req, res) => {
+  const acc = accounts.find((a) => a.id === req.params.id)
+  const file = String(req.params.file)
+  if (!acc || !IMAGE_NAME.test(file)) {
+    res.status(404).end()
+    return
+  }
+  res.sendFile(join(screensDir(acc), file), { headers: { 'Cache-Control': 'private, max-age=31536000, immutable' } }, (err) => {
+    if (err && !res.headersSent) res.status(404).end()
+  })
+})
+
+api.post('/admin/agents/:id/notes', requireAuth, requireAdmin, async (req, res) => {
+  const acc = accounts.find((a) => a.id === req.params.id)
+  if (!acc) {
+    res.status(404).json({ error: 'Compte introuvable' })
+    return
+  }
+  const text = typeof req.body?.text === 'string' ? req.body.text.trim().slice(0, 1000) : ''
+  if (!text) {
+    res.status(400).json({ error: 'Message vide' })
+    return
+  }
+  const note: SupervisionNote = {
+    id: randomUUID(),
+    from: req.account!.username,
+    text,
+    createdAt: new Date().toISOString(),
+    interventionId: typeof req.body?.interventionId === 'string' ? req.body.interventionId : undefined,
+    suspectId: typeof req.body?.suspectId === 'string' ? req.body.suspectId : undefined,
+    lu: false
+  }
+  await queueWrite(acc, async () => {
+    const notes = await readNotes(acc)
+    await mkdir(userDir(acc), { recursive: true })
+    await writeJsonAtomic(notesFile(acc), [...notes, note].slice(-200))
+  })
+  res.json(note)
+})
+
+api.get('/notes', requireAuth, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store')
+  res.json(await readNotes(req.account!))
+})
+
+api.post('/notes/lu', requireAuth, async (req, res) => {
+  const ids: string[] = Array.isArray(req.body?.ids) ? req.body.ids : []
+  const acc = req.account!
+  await queueWrite(acc, async () => {
+    const notes = await readNotes(acc)
+    await writeJsonAtomic(notesFile(acc), notes.map((n) => (ids.includes(n.id) ? { ...n, lu: true } : n)))
+  })
   res.json({ ok: true })
 })
 

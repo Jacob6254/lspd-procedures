@@ -122,10 +122,15 @@ export function Badge(props: { tone: 'green' | 'red' | 'amber' | 'blue' | 'grey'
 }
 
 /** Liste d'étiquettes avec suggestions (accusations, matricules…). */
+export type Suggestion = string | { value: string; hint?: string }
+
+const suggValue = (s: Suggestion) => (typeof s === 'string' ? s : s.value)
+const suggHint = (s: Suggestion) => (typeof s === 'string' ? undefined : s.hint)
+
 export function ChipsInput(props: {
   values: string[]
   onChange: (v: string[]) => void
-  suggestions?: string[]
+  suggestions?: Suggestion[]
   placeholder?: string
   prefix?: string
 }) {
@@ -134,8 +139,8 @@ export function ChipsInput(props: {
   const listId = useId()
   const q = normalize(text)
   const matches = (props.suggestions ?? [])
-    .filter((s) => !props.values.some((v) => v.toLowerCase() === s.toLowerCase()))
-    .filter((s) => !q || normalize(s).includes(q))
+    .filter((s) => !props.values.some((v) => v.toLowerCase() === suggValue(s).toLowerCase()))
+    .filter((s) => !q || normalize(suggValue(s)).includes(q))
     .slice(0, 8)
 
   function add(v: string) {
@@ -177,8 +182,9 @@ export function ChipsInput(props: {
       {open && matches.length > 0 && (
         <div className="suggest" id={listId}>
           {matches.map((m) => (
-            <button type="button" key={m} onMouseDown={(e) => e.preventDefault()} onClick={() => add(m)}>
-              {m}
+            <button type="button" key={suggValue(m)} onMouseDown={(e) => e.preventDefault()} onClick={() => add(suggValue(m))}>
+              {suggValue(m)}
+              {suggHint(m) && <small className="suggest-hint">{suggHint(m)}</small>}
             </button>
           ))}
         </div>

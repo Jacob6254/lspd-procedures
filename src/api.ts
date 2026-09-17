@@ -1,4 +1,4 @@
-import type { AccountInfo, Db, ImageRef, Me, WeaponData } from '@shared/types'
+import type { AccountInfo, AgentSummary, Db, ImageRef, Me, SupervisionNote, WeaponData } from '@shared/types'
 
 export class ApiError extends Error {
   constructor(
@@ -8,6 +8,16 @@ export class ApiError extends Error {
     super(message)
   }
 }
+
+// Quand l'admin prend la main, toutes les requêtes visent le dossier de cet agent.
+let control: string | null = null
+export function setControl(agentId: string | null): void {
+  control = agentId
+}
+export function controlId(): string | null {
+  return control
+}
+const base = () => (control ? `/admin/agents/${control}` : '')
 
 // Appelé quand le serveur répond « non connecté » (session expirée…).
 let onUnauthorized: () => void = () => undefined
@@ -38,7 +48,12 @@ async function request<T>(method: string, path: string, body?: unknown, raw?: Bl
 }
 
 export function imgUrl(file: string): string {
-  return `/api/images/${encodeURIComponent(file)}`
+  return control ? adminImgUrl(control, file) : `/api/images/${encodeURIComponent(file)}`
+}
+
+/** Image d'un autre agent, vue depuis la supervision. */
+export function adminImgUrl(agentId: string, file: string): string {
+  return `/api/admin/agents/${agentId}/images/${encodeURIComponent(file)}`
 }
 
 async function pngBlob(file: string): Promise<Blob> {
@@ -65,11 +80,12 @@ export const api = {
   resetPassword: (id: string, password: string) => request<{ ok: true }>('PUT', `/accounts/${id}/password`, { password }),
   deleteAccount: (id: string) => request<{ ok: true }>('DELETE', `/accounts/${id}`),
 
-  loadDb: () => request<Db | null>('GET', '/db'),
-  saveDb: (db: Db) => request<{ ok: true }>('PUT', '/db', db),
+  loadDb: () => request<Db | null>('GET', `${base()}/db`),
+  saveDb: (db: Db, rev: number) => request<{ rev: number }>('PUT', `${base()}/db`, { db, rev }),
+  dbState: () => request<{ rev: number }>('GET', `${base()}/db/etat`),
 
-  saveImage: (data: Blob) => request<ImageRef>('POST', '/images', undefined, data),
-  deleteImage: (file: string) => request<{ ok: true }>('DELETE', `/images/${encodeURIComponent(file)}`),
+  saveImage: (data: Blob) => request<ImageRef>('POST', `${base()}/images`, undefined, data),
+  deleteImage: (file: string) => request<{ ok: true }>('DELETE', `${base()}/images/${encodeURIComponent(file)}`),
 
   async copyImage(file: string): Promise<void> {
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob(file) })])
@@ -83,6 +99,14 @@ export const api = {
   },
 
   copyText: (text: string) => navigator.clipboard.writeText(text),
+
+  adminAgents: () => request<AgentSummary[]>('GET', '/admin/agents'),
+  adminDb: (id: string) => request<Db | null>('GET', `/admin/agents/${id}/db`),
+  adminSendNote: (id: string, note: { text: string; interventionId?: string; suspectId?: string }) =>
+    request<SupervisionNote>('POST', `/admin/agents/${id}/notes`, note),
+
+  notes: () => request<SupervisionNote[]>('GET', '/notes'),
+  markNotesRead: (ids: string[]) => request<{ ok: true }>('POST', '/notes/lu', { ids }),
 
   getWeapons: (refresh: boolean) =>
     request<{ data: WeaponData; source: 'live' | 'cache' | 'bundled' }>('GET', `/weapons${refresh ? '?refresh=1' : ''}`)
