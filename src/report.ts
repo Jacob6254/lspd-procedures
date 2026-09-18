@@ -2,6 +2,7 @@ import type { Cooperation, Intervention, Saisie, Settings, Suspect, Weapon } fro
 import type { StepKey } from './store'
 import { capitalize, dateFr, heureFr, joinFr, money, sentence } from './lib/format'
 import { legalityFor } from './weapons'
+import { decrireVehicule } from './data/vehicules'
 import { CHECKLIST_TOTAL } from './data/checklist'
 
 export const REPORT_LIMIT = 1000
@@ -131,7 +132,7 @@ export function generateReport(i: Intervention, suspect: Suspect, settings: Sett
   }
   if (i.poursuite) {
     const duree = i.poursuiteDuree.trim()
-    const vehicule = (i.poursuiteVehicule ?? '').trim()
+    const vehicule = decrireVehicule(i.poursuiteVehiculeType ?? '', i.poursuiteVehiculeCouleur ?? '', i.poursuiteVehicule ?? '')
     let p = `Une course-poursuite a ensuite été engagée${duree ? ` pendant ${duree}` : ''}${vehicule ? `, ${plural ? 'les suspects étant à bord' : `${prevenu} étant au volant`} ${deQuelqueChose(vehicule)}` : ''}`
     if (i.poursuiteDangereuse) {
       p += plural

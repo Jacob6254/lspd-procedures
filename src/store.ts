@@ -125,6 +125,8 @@ function newIntervention(settings: Settings): Intervention {
     poursuiteDuree: '',
     poursuiteDangereuse: false,
     poursuiteVehicule: '',
+    poursuiteVehiculeType: '',
+    poursuiteVehiculeCouleur: '',
     poursuiteFin: '',
     tazer: false,
     negociation: '',

@@ -24,6 +24,7 @@ import { type StepKey, interventionImages, interventionTitle, suspectName, useSt
 import { COMPORTEMENTS, COOPERATION, REPORT_LIMIT, SAISIE_GROUPS, type Check, checkSuspect, generateReport, lowerFirst, stepState } from '../report'
 import { INFRACTIONS, accusationSuggestions } from '../data/infractions'
 import { CHECKLIST, CHECKLIST_TOTAL } from '../data/checklist'
+import { COULEURS, TYPES_VEHICULE, decrireVehicule } from '../data/vehicules'
 import {
   PHRASES_AUTRES,
   PHRASES_CONSTAT,
@@ -32,8 +33,7 @@ import {
   PHRASES_MOTIF,
   PHRASES_NEGOCIATION,
   PHRASES_NOTES,
-  PHRASES_POURSUITE_FIN,
-  PHRASES_VEHICULE
+  PHRASES_POURSUITE_FIN
 } from '../data/phrases'
 import { legalityFor, legalityLabel, legalityTone, useWeaponsLoaded } from '../weapons'
 import { dateFr, heureFr, joinFr, money, nowHm, todayIso } from '../lib/format'
@@ -225,19 +225,53 @@ function CommunForm({ intervention: i, settings }: { intervention: Intervention;
                 </div>
                 {i.poursuite && (
                   <>
-                    <Field label="Véhicule du suspect" wide>
+                    <Field label="Type de véhicule" wide>
+                      <div className="pill-group">
+                        {TYPES_VEHICULE.map((t) => {
+                          const actif = i.poursuiteVehiculeType === t.label
+                          return (
+                            <button
+                              type="button"
+                              key={t.label}
+                              className={`pill ${actif ? 'on' : ''}`}
+                              onClick={() => set({ poursuiteVehiculeType: actif ? '' : t.label })}
+                            >
+                              {t.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </Field>
+                    <Field label="Couleur" wide>
+                      <div className="pill-group">
+                        {COULEURS.map((c) => {
+                          const actif = i.poursuiteVehiculeCouleur === c.m
+                          return (
+                            <button
+                              type="button"
+                              key={c.m}
+                              className={`pill pill-couleur ${actif ? 'on' : ''}`}
+                              onClick={() => set({ poursuiteVehiculeCouleur: actif ? '' : c.m })}
+                            >
+                              <span className="pastille" style={{ background: c.css }} />
+                              {c.m}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </Field>
+                    <Field label="Précision sur le véhicule (facultatif)" wide hint="Plaque, détail visible… Ça s’ajoute entre parenthèses.">
                       <TextInput
                         value={i.poursuiteVehicule ?? ''}
                         onChange={(v) => set({ poursuiteVehicule: v })}
-                        placeholder="une Sultan RS, un SUV noir…"
-                      />
-                      <PhrasesRapides
-                        phrases={PHRASES_VEHICULE}
-                        valeur={i.poursuiteVehicule ?? ''}
-                        mode="remplacer"
-                        onChoisir={(v) => set({ poursuiteVehicule: v })}
+                        placeholder="plaque 12ABC345, vitres teintées…"
                       />
                     </Field>
+                    {decrireVehicule(i.poursuiteVehiculeType ?? '', i.poursuiteVehiculeCouleur ?? '', i.poursuiteVehicule ?? '') && (
+                      <p className="muted small">
+                        Dans le rapport : « au volant {deVehicule(decrireVehicule(i.poursuiteVehiculeType ?? '', i.poursuiteVehiculeCouleur ?? '', i.poursuiteVehicule ?? ''))} »
+                      </p>
+                    )}
                     <Toggle
                       checked={i.poursuiteDangereuse}
                       onChange={(v) => set({ poursuiteDangereuse: v })}
@@ -370,6 +404,11 @@ function SuspectView(props: { intervention: Intervention; suspect: Suspect; step
       </div>
     </div>
   )
+}
+
+/** « une sportive noire » → « d'une sportive noire ». */
+function deVehicule(v: string): string {
+  return /^[aeiouyhâàéèêîïôûAEIOUYH]/.test(v) ? `d'${v}` : `de ${v}`
 }
 
 export type SetSuspect = (p: Partial<Suspect> | ((cur: Suspect) => Partial<Suspect>)) => void

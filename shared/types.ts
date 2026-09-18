@@ -91,6 +91,8 @@ export interface Intervention {
   poursuiteDuree: string
   poursuiteDangereuse: boolean
   poursuiteVehicule: string
+  poursuiteVehiculeType: string
+  poursuiteVehiculeCouleur: string
   poursuiteFin: string
   tazer: boolean
   negociation: string
