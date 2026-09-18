@@ -2459,3 +2459,53 @@ kbd {
 .login-tabs .segment {
   justify-content: center;
 }
+
+/* ---------- Phrases toutes prêtes ---------- */
+
+.phrases {
+  margin-top: 4px;
+}
+.phrases-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--title);
+  font-weight: 600;
+  font-size: 11.5px;
+  color: var(--accent-text);
+  padding: 2px 0;
+}
+.phrases-toggle:hover {
+  color: #b9ccff;
+}
+.phrases-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 6px;
+  border-radius: 9px;
+  border: 1px solid var(--border-2);
+  background: #0c0c0e;
+}
+.phrases-list button {
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 7px;
+  color: var(--text-2);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.phrases-list button:hover {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.sub-options-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-left: 30px;
+  border-left: 2px solid var(--border-2);
+  margin-left: 9px;
+}

@@ -70,7 +70,7 @@ export interface Suspect {
   rapportManuel: string | null
 }
 
-export type Origine = 'appel' | 'patrouille' | 'controle' | 'flagrant'
+export type Origine = 'appel' | 'appel_citoyen' | 'patrouille' | 'controle' | 'flagrant'
 
 export interface Intervention {
   id: string
@@ -84,11 +84,13 @@ export interface Intervention {
   lieu: string
   matricules: string[]
   constat: string
+  refusObtemperer: boolean
   fuitePied: boolean
   fuitePiedDuree: string
   poursuite: boolean
   poursuiteDuree: string
   poursuiteDangereuse: boolean
+  poursuiteVehicule: string
   poursuiteFin: string
   tazer: boolean
   negociation: string

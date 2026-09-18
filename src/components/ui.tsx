@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { Check, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Quote, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { normalize } from '../lib/format'
 
@@ -230,6 +230,35 @@ export function Empty(props: { icon: LucideIcon; title: string; text?: string; c
       <strong>{props.title}</strong>
       {props.text && <p>{props.text}</p>}
       {props.children}
+    </div>
+  )
+}
+
+/** Liste de phrases prêtes à insérer dans un champ ; on peut ensuite compléter à la main. */
+export function PhrasesRapides(props: { phrases: string[]; valeur: string; onChoisir: (v: string) => void; mode?: 'ajouter' | 'remplacer' }) {
+  const [ouvert, setOuvert] = useState(false)
+  return (
+    <div className="phrases">
+      <button type="button" className="phrases-toggle" onClick={() => setOuvert(!ouvert)}>
+        <Quote size={12} /> Phrases toutes prêtes
+        {ouvert ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+      </button>
+      {ouvert && (
+        <div className="phrases-list">
+          {props.phrases.map((p) => (
+            <button
+              type="button"
+              key={p}
+              onClick={() => {
+                const actuel = props.valeur.trim()
+                props.onChoisir(props.mode === 'remplacer' || !actuel ? p : actuel + ' ' + p)
+              }}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

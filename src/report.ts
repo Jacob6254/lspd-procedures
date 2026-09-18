@@ -64,6 +64,11 @@ function adj(label: string, fem: boolean): string {
   return fem && known ? known.fem : label
 }
 
+/** « une Sultan RS » → « d'une Sultan RS », « la voiture » → « de la voiture ». */
+function deQuelqueChose(v: string): string {
+  return /^[aeiouyhâàéèêîïôûAEIOUYH]/.test(v) ? `d'${v}` : `de ${v}`
+}
+
 /** Rapport complet pour un suspect, dans le style des exemples LSPD. */
 export function generateReport(i: Intervention, suspect: Suspect, settings: Settings, weapons: Map<string, Weapon>): string {
   const fem = suspect.civilite === 'Mme'
@@ -82,6 +87,9 @@ export function generateReport(i: Intervention, suspect: Suspect, settings: Sett
   switch (i.origine) {
     case 'appel':
       intro.push(`À la suite d'un appel signalant ${motif}${at}, je me suis rendu sur place${avec ? ` ${avec}` : ''}.`)
+      break
+    case 'appel_citoyen':
+      intro.push(`À la suite d'un appel d'un citoyen signalant ${motif}${at}, je me suis rendu sur place${avec ? ` ${avec}` : ''}.`)
       break
     case 'patrouille':
       intro.push(
@@ -110,6 +118,7 @@ export function generateReport(i: Intervention, suspect: Suspect, settings: Sett
 
   const deroule: string[] = []
   const sujet = plural ? 'Les suspects' : capitalize(prevenu)
+  if (i.refusObtemperer) deroule.push(`${sujet} ${plural ? 'ont' : 'a'} refusé d'obtempérer malgré nos sommations.`)
   if (i.fuitePied) {
     const duree = i.fuitePiedDuree.trim()
     const pronom = plural ? 'les ' : "l'"
@@ -122,7 +131,8 @@ export function generateReport(i: Intervention, suspect: Suspect, settings: Sett
   }
   if (i.poursuite) {
     const duree = i.poursuiteDuree.trim()
-    let p = `Une course-poursuite a ensuite été engagée${duree ? ` pendant ${duree}` : ''}`
+    const vehicule = (i.poursuiteVehicule ?? '').trim()
+    let p = `Une course-poursuite a ensuite été engagée${duree ? ` pendant ${duree}` : ''}${vehicule ? `, ${plural ? 'les suspects étant à bord' : `${prevenu} étant au volant`} ${deQuelqueChose(vehicule)}` : ''}`
     if (i.poursuiteDangereuse) {
       p += plural
         ? ', les suspects adoptant une conduite dangereuse et mettant en danger les usagers de la route'

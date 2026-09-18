@@ -24,20 +24,31 @@ import { type StepKey, interventionImages, interventionTitle, suspectName, useSt
 import { COMPORTEMENTS, COOPERATION, REPORT_LIMIT, SAISIE_GROUPS, type Check, checkSuspect, generateReport, lowerFirst, stepState } from '../report'
 import { INFRACTIONS, accusationSuggestions } from '../data/infractions'
 import { CHECKLIST, CHECKLIST_TOTAL } from '../data/checklist'
+import {
+  PHRASES_AUTRES,
+  PHRASES_CONSTAT,
+  PHRASES_INTERPELLATION,
+  PHRASES_LIEU,
+  PHRASES_MOTIF,
+  PHRASES_NEGOCIATION,
+  PHRASES_NOTES,
+  PHRASES_POURSUITE_FIN,
+  PHRASES_VEHICULE
+} from '../data/phrases'
 import { legalityFor, legalityLabel, legalityTone, useWeaponsLoaded } from '../weapons'
 import { dateFr, heureFr, joinFr, money, nowHm, todayIso } from '../lib/format'
-import { Badge, ChipsInput, ConfirmButton, Empty, Field, PageHeader, Panel, Segmented, TextArea, TextInput, Toggle } from '../components/ui'
+import { Badge, ChipsInput, ConfirmButton, Empty, Field, PageHeader, Panel, PhrasesRapides, Segmented, TextArea, TextInput, Toggle } from '../components/ui'
 import { Lightbox, ScreenSlot } from '../components/ScreenSlot'
 import { api, imgUrl } from '../api'
 import { SaisiesEditor } from '../components/SaisiesEditor'
 
 const STEPS: { key: StepKey; label: string; icon: typeof IdCard }[] = [
   { key: 'identite', label: 'Identité', icon: IdCard },
-  { key: 'miranda', label: 'Droits Miranda', icon: MessageSquareWarning },
   { key: 'fouille', label: 'Fouille', icon: PackageSearch },
   { key: 'comportement', label: 'Comportement & accusations', icon: Scale },
   { key: 'sanction', label: 'Amendes & casier', icon: Gavel },
   { key: 'rapport', label: 'Rapport', icon: FileText },
+  { key: 'miranda', label: 'Droits Miranda', icon: MessageSquareWarning },
   { key: 'checklist', label: 'Checklist fin de procédure', icon: ListChecks },
   { key: 'fiche', label: 'Fiche résumé', icon: ClipboardList }
 ]
@@ -135,6 +146,7 @@ function CommunForm({ intervention: i, settings }: { intervention: Intervention;
                 onChange={(v) => set({ origine: v })}
                 options={[
                   { value: 'appel', label: 'Appel' },
+                  { value: 'appel_citoyen', label: 'Appel citoyen' },
                   { value: 'patrouille', label: 'En patrouille' },
                   { value: 'controle', label: 'Contrôle routier' },
                   { value: 'flagrant', label: 'Flagrant délit' }
@@ -142,13 +154,15 @@ function CommunForm({ intervention: i, settings }: { intervention: Intervention;
               />
             </Field>
             <Field
-              label={i.origine === 'appel' ? 'L’appel signalait…' : 'Ce qui a été constaté'}
+              label={i.origine === 'appel' || i.origine === 'appel_citoyen' ? 'L’appel signalait…' : 'Ce qui a été constaté'}
               hint="Écris-le comme dans une phrase : « un braquage », « une vente de drogue »…"
             >
               <TextInput value={i.motif} onChange={(v) => set({ motif: v })} placeholder="un braquage de l’Ammu-Nation" />
+              <PhrasesRapides phrases={PHRASES_MOTIF} valeur={i.motif} mode="remplacer" onChoisir={(v) => set({ motif: v })} />
             </Field>
             <Field label="Lieu" hint="Avec « à », « au niveau de »…">
               <TextInput value={i.lieu} onChange={(v) => set({ lieu: v })} placeholder="au niveau du cimetière" />
+              <PhrasesRapides phrases={PHRASES_LIEU} valeur={i.lieu} mode="remplacer" onChoisir={(v) => set({ lieu: v })} />
             </Field>
             <Field label="Matricules des agents présents" wide hint="Le tien est ajouté tout seul. Entrée pour valider.">
               <ChipsInput
@@ -166,6 +180,7 @@ function CommunForm({ intervention: i, settings }: { intervention: Intervention;
                 rows={2}
                 placeholder={`Sur les lieux, ${nous ? 'nous avons' : 'j’ai'} constaté la présence de deux braqueurs, d’un otage et d’un véhicule de fuite.`}
               />
+              <PhrasesRapides phrases={PHRASES_CONSTAT} valeur={i.constat} onChoisir={(v) => set({ constat: v })} />
             </Field>
             <Field label="Négociation (si besoin)" wide>
               <TextArea
@@ -174,40 +189,76 @@ function CommunForm({ intervention: i, settings }: { intervention: Intervention;
                 rows={2}
                 placeholder="Après négociation, les voies ont été libérées en échange de l’otage."
               />
+              <PhrasesRapides phrases={PHRASES_NEGOCIATION} valeur={i.negociation} onChoisir={(v) => set({ negociation: v })} />
             </Field>
           </div>
         </Panel>
 
         <Panel title="Déroulé" icon={Fingerprint}>
           <div className="stack gap-12">
-            <div className="toggle-row">
-              <Toggle checked={i.fuitePied} onChange={(v) => set({ fuitePied: v })} label="Fuite à pied" />
-              {i.fuitePied && (
-                <TextInput value={i.fuitePiedDuree} onChange={(v) => set({ fuitePiedDuree: v })} placeholder="Durée : environ une minute" />
-              )}
-            </div>
-            <div className="toggle-row">
-              <Toggle checked={i.poursuite} onChange={(v) => set({ poursuite: v })} label="Course-poursuite en véhicule" />
-              {i.poursuite && (
-                <TextInput value={i.poursuiteDuree} onChange={(v) => set({ poursuiteDuree: v })} placeholder="Durée : plusieurs minutes" />
-              )}
-            </div>
-            {i.poursuite && (
-              <div className="sub-options">
-                <Toggle
-                  checked={i.poursuiteDangereuse}
-                  onChange={(v) => set({ poursuiteDangereuse: v })}
-                  label="Conduite dangereuse"
-                  hint="Met en danger les usagers de la route"
-                />
-                <TextInput
-                  value={i.poursuiteFin}
-                  onChange={(v) => set({ poursuiteFin: v })}
-                  placeholder="Fin de la poursuite : le véhicule a fini sa course dans un arbre."
-                />
+            <Toggle
+              checked={i.refusObtemperer ?? false}
+              onChange={(v) => set({ refusObtemperer: v })}
+              label="Refus d’obtempérer"
+              hint="Il n’a pas obéi à nos sommations"
+            />
+
+            <Toggle
+              checked={i.fuitePied || i.poursuite}
+              onChange={(v) => set(v ? { poursuite: true } : { fuitePied: false, poursuite: false })}
+              label="Délit de fuite"
+              hint="À pied, en véhicule, ou les deux"
+            />
+            {(i.fuitePied || i.poursuite) && (
+              <div className="sub-options-col">
+                <div className="toggle-row">
+                  <Toggle checked={i.fuitePied} onChange={(v) => set({ fuitePied: v })} label="À pied" />
+                  {i.fuitePied && (
+                    <TextInput value={i.fuitePiedDuree} onChange={(v) => set({ fuitePiedDuree: v })} placeholder="Durée : environ une minute" />
+                  )}
+                </div>
+                <div className="toggle-row">
+                  <Toggle checked={i.poursuite} onChange={(v) => set({ poursuite: v })} label="En véhicule" />
+                  {i.poursuite && (
+                    <TextInput value={i.poursuiteDuree} onChange={(v) => set({ poursuiteDuree: v })} placeholder="Durée : plusieurs minutes" />
+                  )}
+                </div>
+                {i.poursuite && (
+                  <>
+                    <Field label="Véhicule du suspect" wide>
+                      <TextInput
+                        value={i.poursuiteVehicule ?? ''}
+                        onChange={(v) => set({ poursuiteVehicule: v })}
+                        placeholder="une Sultan RS, un SUV noir…"
+                      />
+                      <PhrasesRapides
+                        phrases={PHRASES_VEHICULE}
+                        valeur={i.poursuiteVehicule ?? ''}
+                        mode="remplacer"
+                        onChoisir={(v) => set({ poursuiteVehicule: v })}
+                      />
+                    </Field>
+                    <Toggle
+                      checked={i.poursuiteDangereuse}
+                      onChange={(v) => set({ poursuiteDangereuse: v })}
+                      label="Conduite dangereuse"
+                      hint="Met en danger les usagers de la route"
+                    />
+                    <Field label="Fin de la poursuite" wide>
+                      <TextInput
+                        value={i.poursuiteFin}
+                        onChange={(v) => set({ poursuiteFin: v })}
+                        placeholder="Le véhicule a fini sa course dans un arbre."
+                      />
+                      <PhrasesRapides phrases={PHRASES_POURSUITE_FIN} valeur={i.poursuiteFin} onChoisir={(v) => set({ poursuiteFin: v })} />
+                    </Field>
+                  </>
+                )}
               </div>
             )}
+
             <Toggle checked={i.tazer} onChange={(v) => set({ tazer: v })} label="Usage du tazer" />
+
             <Field label="Interpellation (facultatif)" wide>
               <TextArea
                 value={i.interpellation}
@@ -215,6 +266,7 @@ function CommunForm({ intervention: i, settings }: { intervention: Intervention;
                 rows={2}
                 placeholder="Après nous être assurés que le conducteur n’était pas blessé, nous avons procédé à son interpellation."
               />
+              <PhrasesRapides phrases={PHRASES_INTERPELLATION} valeur={i.interpellation} onChoisir={(v) => set({ interpellation: v })} />
             </Field>
             <Field label="Conduit ensuite" wide>
               <Segmented
@@ -228,6 +280,7 @@ function CommunForm({ intervention: i, settings }: { intervention: Intervention;
             </Field>
             <Field label="Autres éléments importants" wide>
               <TextArea value={i.autres} onChange={(v) => set({ autres: v })} rows={2} placeholder="Tout ce qui ne rentre pas au-dessus." />
+              <PhrasesRapides phrases={PHRASES_AUTRES} valeur={i.autres} onChoisir={(v) => set({ autres: v })} />
             </Field>
           </div>
         </Panel>
@@ -557,6 +610,7 @@ function ComportementStep({ s, set }: { s: Suspect; set: SetSuspect }) {
 
       <Panel title="Notes pour le rapport">
         <TextArea value={s.notes} onChange={(v) => set({ notes: v })} rows={3} placeholder="Ce qui concerne uniquement ce suspect (s’ajoute à la fin du rapport)." />
+        <PhrasesRapides phrases={PHRASES_NOTES} valeur={s.notes} onChoisir={(v) => set({ notes: v })} />
       </Panel>
     </div>
   )
