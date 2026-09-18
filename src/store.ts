@@ -60,7 +60,8 @@ export function setMatriculeInscription(v: string): void {
 export const defaultSettings: Settings = {
   matricule: '',
   nomAgent: '',
-  collegues: []
+  collegues: [],
+  rapportCourt: true
 }
 
 function emptyDb(): Db {

@@ -680,6 +680,7 @@ function SanctionStep({ i, s }: { i: Intervention; s: Suspect }) {
 
 function RapportStep({ i, s, set, checks }: StepProps & { checks: Check[] }) {
   const settings = useStore((st) => st.db.settings)
+  const updateSettings = useStore((st) => st.updateSettings)
   const openDossier = useStore((st) => st.openDossier)
   const toast = useStore((st) => st.toast)
   const { byId } = useWeaponsLoaded()
@@ -696,6 +697,12 @@ function RapportStep({ i, s, set, checks }: StepProps & { checks: Check[] }) {
         icon={FileText}
         right={
           <div className="row gap-8">
+            <Toggle
+              checked={settings.rapportCourt !== false}
+              onChange={(v) => updateSettings({ rapportCourt: v })}
+              label="Version courte"
+              hint="Pour tenir dans les 1000 caractères"
+            />
             {s.rapportManuel !== null && (
               <button type="button" className="btn" onClick={() => set({ rapportManuel: null })} title="Remplace tes modifications par le texte généré">
                 <RotateCcw size={15} /> Régénérer

@@ -70,8 +70,9 @@ function deQuelqueChose(v: string): string {
   return /^[aeiouyhâàéèêîïôûAEIOUYH]/.test(v) ? `d'${v}` : `de ${v}`
 }
 
-/** Rapport complet pour un suspect, dans le style des exemples LSPD. */
+/** Rapport d'un suspect. En version courte, les phrases sont réduites pour tenir dans le champ du MDT. */
 export function generateReport(i: Intervention, suspect: Suspect, settings: Settings, weapons: Map<string, Weapon>): string {
+  const court = settings.rapportCourt !== false
   const fem = suspect.civilite === 'Mme'
   const plural = i.suspects.length > 1
   const agents = others(i, settings)
@@ -79,116 +80,173 @@ export function generateReport(i: Intervention, suspect: Suspect, settings: Sett
   const avec = avecAgents(agents)
   const motif = i.motif.trim() || '[motif]'
   const lieu = i.lieu.trim()
+  const at = lieu ? ` ${lieu}` : ''
   const prevenu = fem ? 'la prévenue' : 'le prévenu'
+  const nomComplet = `${suspect.prenom} ${suspect.nom}`.trim()
 
-  const header = [`Rapport d'intervention — Matricule ${settings.matricule || '[matricule]'}`, `Date : ${dateFr(i.date)} ${heureFr(i.heure)}`]
+  // On nomme le suspect une seule fois, ensuite on dit « il », « elle » ou « ils ».
+  let presente = false
+  const sujetMin = (): string => {
+    if (!presente) {
+      presente = true
+      if (plural) return nomComplet ? `${fem ? 'Mme' : 'M.'} ${nomComplet}` : 'le suspect'
+      return prevenu
+    }
+    return plural ? 'il' : fem ? 'elle' : 'il'
+  }
+  const Sujet = (): string => capitalize(sujetMin())
+  const a = plural ? 'a' : 'a'
+  const accord = (masc: string, femi: string) => (fem ? femi : masc)
+
+  const header = court
+    ? [`Rapport — Matricule ${settings.matricule || '[matricule]'} · ${dateFr(i.date)} ${heureFr(i.heure)}`]
+    : [`Rapport d'intervention — Matricule ${settings.matricule || '[matricule]'}`, `Date : ${dateFr(i.date)} ${heureFr(i.heure)}`]
 
   const intro: string[] = []
-  const at = lieu ? ` ${lieu}` : ''
-  switch (i.origine) {
-    case 'appel':
-      intro.push(`À la suite d'un appel signalant ${motif}${at}, je me suis rendu sur place${avec ? ` ${avec}` : ''}.`)
-      break
-    case 'appel_citoyen':
-      intro.push(`À la suite d'un appel d'un citoyen signalant ${motif}${at}, je me suis rendu sur place${avec ? ` ${avec}` : ''}.`)
-      break
-    case 'patrouille':
-      intro.push(
-        nous
-          ? `J'étais en patrouille ${avec} lorsque nous avons constaté ${motif}${at}.`
-          : `J'étais en patrouille lorsque j'ai constaté ${motif}${at}.`
-      )
-      break
-    case 'controle':
-      intro.push(
-        nous
-          ? `Lors d'un contrôle routier${at} effectué ${avec}, nous avons constaté ${motif}.`
-          : `Lors d'un contrôle routier${at}, j'ai constaté ${motif}.`
-      )
-      break
-    case 'flagrant':
-      intro.push(
-        nous
-          ? `Alors que je me trouvais${at} ${avec}, nous avons constaté en flagrant délit ${motif}.`
-          : `Alors que je me trouvais${at}, j'ai constaté en flagrant délit ${motif}.`
-      )
-      break
+  if (court) {
+    switch (i.origine) {
+      case 'appel':
+        intro.push(`Appel signalant ${motif}${at}.${avec ? ` Intervention ${avec}.` : ''}`)
+        break
+      case 'appel_citoyen':
+        intro.push(`Appel d'un citoyen signalant ${motif}${at}.${avec ? ` Intervention ${avec}.` : ''}`)
+        break
+      case 'patrouille':
+        intro.push(`En patrouille${avec ? ` ${avec}` : ''}${at} : ${motif}.`)
+        break
+      case 'controle':
+        intro.push(`Contrôle routier${at}${avec ? ` ${avec}` : ''} : ${motif}.`)
+        break
+      case 'flagrant':
+        intro.push(`Flagrant délit${at}${avec ? ` ${avec}` : ''} : ${motif}.`)
+        break
+    }
+  } else {
+    switch (i.origine) {
+      case 'appel':
+        intro.push(`À la suite d'un appel signalant ${motif}${at}, je me suis rendu sur place${avec ? ` ${avec}` : ''}.`)
+        break
+      case 'appel_citoyen':
+        intro.push(`À la suite d'un appel d'un citoyen signalant ${motif}${at}, je me suis rendu sur place${avec ? ` ${avec}` : ''}.`)
+        break
+      case 'patrouille':
+        intro.push(
+          nous ? `J'étais en patrouille ${avec} lorsque nous avons constaté ${motif}${at}.` : `J'étais en patrouille lorsque j'ai constaté ${motif}${at}.`
+        )
+        break
+      case 'controle':
+        intro.push(
+          nous ? `Lors d'un contrôle routier${at} effectué ${avec}, nous avons constaté ${motif}.` : `Lors d'un contrôle routier${at}, j'ai constaté ${motif}.`
+        )
+        break
+      case 'flagrant':
+        intro.push(
+          nous ? `Alors que je me trouvais${at} ${avec}, nous avons constaté en flagrant délit ${motif}.` : `Alors que je me trouvais${at}, j'ai constaté en flagrant délit ${motif}.`
+        )
+        break
+    }
   }
   if (i.constat.trim()) intro.push(sentence(i.constat))
   if (i.negociation.trim()) intro.push(sentence(i.negociation))
 
   const deroule: string[] = []
-  const sujet = plural ? 'Les suspects' : capitalize(prevenu)
-  if (i.refusObtemperer) deroule.push(`${sujet} ${plural ? 'ont' : 'a'} refusé d'obtempérer malgré nos sommations.`)
-  if (i.fuitePied) {
-    const duree = i.fuitePiedDuree.trim()
-    const pronom = plural ? 'les ' : "l'"
-    const accord = plural ? 'poursuivis' : fem ? 'poursuivie' : 'poursuivi'
-    deroule.push(
-      `${sujet} ${plural ? 'ont' : 'a'} pris la fuite à pied. ${nous ? 'Nous' : 'Je'} ${pronom}${nous ? 'avons' : 'ai'} ${accord}${
-        duree ? ` pendant ${duree}` : ''
-      }.`
-    )
-  }
-  if (i.poursuite) {
-    const duree = i.poursuiteDuree.trim()
-    const vehicule = decrireVehicule(i.poursuiteVehiculeType ?? '', i.poursuiteVehiculeCouleur ?? '', i.poursuiteVehicule ?? '')
-    let p = `Une course-poursuite a ensuite été engagée${duree ? ` pendant ${duree}` : ''}${vehicule ? `, ${plural ? 'les suspects étant à bord' : `${prevenu} étant au volant`} ${deQuelqueChose(vehicule)}` : ''}`
-    if (i.poursuiteDangereuse) {
-      p += plural
-        ? ', les suspects adoptant une conduite dangereuse et mettant en danger les usagers de la route'
-        : `, ${prevenu} adoptant une conduite dangereuse et mettant en danger les usagers de la route`
+  const duree = i.fuitePiedDuree.trim()
+  const dureeVoiture = i.poursuiteDuree.trim()
+  const vehicule = decrireVehicule(i.poursuiteVehiculeType ?? '', i.poursuiteVehiculeCouleur ?? '', i.poursuiteVehicule ?? '')
+  const destination = i.destination === 'poste' ? 'au poste' : "en salle d'interrogatoire"
+
+  if (court) {
+    if (i.refusObtemperer) deroule.push("Refus d'obtempérer.")
+    if (i.fuitePied) deroule.push(`Fuite à pied${duree ? ` (${duree})` : ''}.`)
+    if (i.poursuite) {
+      deroule.push(
+        `Course-poursuite${dureeVoiture ? ` (${dureeVoiture})` : ''}${vehicule ? `, au volant ${deQuelqueChose(vehicule)}` : ''}${
+          i.poursuiteDangereuse ? ', conduite dangereuse' : ''
+        }.`
+      )
+      if (i.poursuiteFin.trim()) deroule.push(sentence(i.poursuiteFin))
     }
-    deroule.push(`${p}.`)
-    if (i.poursuiteFin.trim()) deroule.push(sentence(i.poursuiteFin))
+    if (i.tazer) deroule.push('Usage du tazer.')
+    if (i.interpellation.trim()) deroule.push(sentence(i.interpellation))
+    deroule.push(`${plural ? 'Menottés puis conduits' : `${accord('Menotté', 'Menottée')} puis ${accord('conduit', 'conduite')}`} ${destination}.`)
+    if (i.autres.trim()) deroule.push(sentence(i.autres))
+  } else {
+    if (i.refusObtemperer) deroule.push(`${Sujet()} ${plural ? 'ont' : a} refusé d'obtempérer malgré nos sommations.`)
+    if (i.fuitePied) {
+      const pronom = plural ? 'les ' : "l'"
+      const accordP = plural ? 'poursuivis' : accord('poursuivi', 'poursuivie')
+      deroule.push(
+        `${Sujet()} ${plural ? 'ont' : a} pris la fuite à pied. ${nous ? 'Nous' : 'Je'} ${pronom}${nous ? 'avons' : 'ai'} ${accordP}${
+          duree ? ` pendant ${duree}` : ''
+        }.`
+      )
+    }
+    if (i.poursuite) {
+      let p = `Une course-poursuite a ensuite été engagée${dureeVoiture ? ` pendant ${dureeVoiture}` : ''}${
+        vehicule ? `, ${plural ? 'à bord' : 'au volant'} ${deQuelqueChose(vehicule)}` : ''
+      }`
+      if (i.poursuiteDangereuse) p += ', avec une conduite dangereuse mettant en danger les usagers de la route'
+      deroule.push(`${p}.`)
+      if (i.poursuiteFin.trim()) deroule.push(sentence(i.poursuiteFin))
+    }
+    if (i.tazer) deroule.push(`${nous ? 'Nous avons' : "J'ai"} fait usage du tazer afin de ${plural ? 'les' : accord('le', 'la')} neutraliser.`)
+    if (i.interpellation.trim()) deroule.push(sentence(i.interpellation))
+    deroule.push(
+      `${Sujet()} ${plural ? 'ont été menottés puis conduits' : `a été ${accord('menotté', 'menottée')} puis ${accord('conduit', 'conduite')}`} ${destination} afin d'effectuer la procédure.`
+    )
+    if (i.autres.trim()) deroule.push(sentence(i.autres))
   }
-  if (i.tazer) deroule.push(`${nous ? 'Nous avons' : "J'ai"} fait usage du tazer afin de ${plural ? 'les' : fem ? 'la' : 'le'} neutraliser.`)
-  if (i.interpellation.trim()) deroule.push(sentence(i.interpellation))
-  const menotte = plural ? 'Les individus ont été menottés' : `${capitalize(prevenu)} a été ${fem ? 'menottée' : 'menotté'}`
-  deroule.push(
-    `${menotte} puis ${plural ? 'conduits' : fem ? 'conduite' : 'conduit'} ${
-      i.destination === 'poste' ? 'au poste' : "en salle d'interrogatoire"
-    } afin d'effectuer la procédure.`
-  )
-  if (i.autres.trim()) deroule.push(sentence(i.autres))
 
   const perso: string[] = []
-  const nomSuspect = `${suspect.prenom} ${suspect.nom}`.trim()
-  const lui = fem ? 'elle' : 'lui'
-  const qui = plural && nomSuspect ? `${fem ? 'Mme' : 'M.'} ${nomSuspect}` : capitalize(prevenu)
   const traits = suspect.comportements.map((c) => adj(c, fem))
   const coop = COOPERATION.find((c) => c.key === suspect.cooperation)
   if (coop) traits.push(fem ? coop.fem : coop.label)
-  if (traits.length) perso.push(`${qui} s'est ${fem ? 'montrée' : 'montré'} ${joinFr(traits)} durant son interpellation.`)
-  if (suspect.recherche === 'oui') perso.push(`${capitalize(prevenu)} faisait l'objet d'un avis de recherche.`)
-  if (suspect.bracelet === 'oui') perso.push(`${capitalize(prevenu)} portait un bracelet électronique.`)
-  if (suspect.outrage) {
-    perso.push(`${capitalize(prevenu)} a proféré l'outrage suivant envers les agents : « ${suspect.outragePhrase.trim() || '[phrase exacte]'} ».`)
-  }
-  if (suspect.menace) {
-    perso.push(`${capitalize(prevenu)} a proféré la menace suivante envers un agent de l'État : « ${suspect.menacePhrase.trim() || '[phrase exacte]'} ».`)
+
+  if (court) {
+    if (traits.length) perso.push(`Comportement : ${joinFr(traits)}.`)
+    if (suspect.recherche === 'oui') perso.push('Avis de recherche en cours.')
+    if (suspect.bracelet === 'oui') perso.push('Bracelet électronique.')
+    if (suspect.outrage) perso.push(`Outrage : « ${suspect.outragePhrase.trim() || '[phrase exacte]'} ».`)
+    if (suspect.menace) perso.push(`Menace sur agent : « ${suspect.menacePhrase.trim() || '[phrase exacte]'} ».`)
+  } else {
+    if (traits.length) perso.push(`${Sujet()} s'est ${accord('montré', 'montrée')} ${joinFr(traits)} durant son interpellation.`)
+    if (suspect.recherche === 'oui') perso.push(`${Sujet()} faisait l'objet d'un avis de recherche.`)
+    if (suspect.bracelet === 'oui') perso.push(`${Sujet()} portait un bracelet électronique.`)
+    if (suspect.outrage) perso.push(`${Sujet()} a proféré l'outrage suivant envers les agents : « ${suspect.outragePhrase.trim() || '[phrase exacte]'} ».`)
+    if (suspect.menace) {
+      perso.push(`${Sujet()} a proféré la menace suivante envers un agent de l'État : « ${suspect.menacePhrase.trim() || '[phrase exacte]'} ».`)
+    }
   }
 
   const fouille: string[] = []
   const saisies = suspect.saisies.filter((s) => s.label.trim() || s.type === 'argent')
   if (saisies.length === 0) {
-    fouille.push(
-      suspect.rienSurLui
-        ? `Lors de la fouille, ${prevenu} n'avait rien d'illégal sur ${lui}.`
-        : 'Lors de la fouille, [objets saisis à compléter].'
-    )
+    if (court) fouille.push(suspect.rienSurLui ? "Fouille : rien d'illégal." : 'Fouille : [à compléter].')
+    else {
+      fouille.push(
+        suspect.rienSurLui
+          ? `Lors de la fouille, ${sujetMin()} n'avait rien d'illégal sur ${fem ? 'elle' : 'lui'}.`
+          : 'Lors de la fouille, [objets saisis à compléter].'
+      )
+    }
   } else {
-    fouille.push('Lors de la fouille, les éléments suivants ont été saisis :')
+    fouille.push(court ? 'Saisies :' : 'Lors de la fouille, les éléments suivants ont été saisis :')
     for (const g of SAISIE_GROUPS) {
       const items = saisies.filter((s) => s.type === g.type)
       if (!items.length) continue
-      fouille.push(`${g.title} :`)
-      items.forEach((s) => fouille.push(saisieLine(s, suspect, weapons)))
+      const lignes = items.map((s) => saisieLine(s, suspect, weapons))
+      if (court) fouille.push(`${g.title} : ${lignes.join(', ')}`)
+      else {
+        fouille.push(`${g.title} :`)
+        lignes.forEach((l) => fouille.push(l))
+      }
     }
   }
 
   const fin: string[] = []
-  if (suspect.accusations.length) fin.push(`Accusations retenues : ${joinFr(suspect.accusations.map(lowerFirst))}.`)
+  if (suspect.accusations.length) {
+    fin.push(`${court ? 'Accusations' : 'Accusations retenues'} : ${joinFr(suspect.accusations.map(lowerFirst))}.`)
+  }
   if (suspect.notes.trim()) fin.push(sentence(suspect.notes))
 
   const blocks = [header.join('\n'), intro.join(' '), deroule.join(' '), perso.join(' '), fouille.join('\n'), fin.join('\n')]

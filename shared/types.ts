@@ -107,6 +107,8 @@ export interface Settings {
   matricule: string
   nomAgent: string
   collegues: string[]
+  /** Rapport en version courte, pour tenir dans les 1000 caractères du MDT. */
+  rapportCourt?: boolean
 }
 
 export interface Db {
