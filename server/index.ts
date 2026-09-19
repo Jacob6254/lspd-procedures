@@ -5,6 +5,8 @@ import { mkdir, readFile, rename, rm, unlink, writeFile } from 'node:fs/promises
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { AccountInfo, AgentSummary, ConfigInscription, Db, ImageRef, Me, ModeInscription, SupervisionNote, WeaponData } from '../shared/types'
+import type { FormationScenario } from '../shared/formation'
+import { FORMATIONS_DEFAUT } from './formations-default'
 
 const PORT = Number(process.env.PORT ?? 3000)
 const DATA_DIR = resolve(process.env.DATA_DIR ?? 'data')
@@ -106,6 +108,15 @@ function noteInscription(ip: string): void {
 function validPassword(p: unknown): p is string {
   return typeof p === 'string' && p.length >= 8 && p.length <= 200
 }
+
+// ---------- Formation des rookies ----------
+
+const formationsFile = join(DATA_DIR, 'formations.json')
+const formationScreensDir = join(DATA_DIR, 'formation-screens')
+mkdirSync(formationScreensDir, { recursive: true })
+
+let formations: FormationScenario[] = existsSync(formationsFile) ? JSON.parse(readFileSync(formationsFile, 'utf8')) : FORMATIONS_DEFAUT
+if (!existsSync(formationsFile)) writeFileSync(formationsFile, JSON.stringify(formations), 'utf8')
 
 // ---------- Sessions (cookie signé) ----------
 
@@ -614,7 +625,9 @@ api.get('/admin/agents', requireAuth, requireAdmin, async (_req, res) => {
         (db?.inbox ?? []).length
       ),
       majA: interventions.reduce<string | null>((last, i) => (!last || i.updatedAt > last ? i.updatedAt : last), null),
-      notesNonLues: notes.filter((n) => !n.lu).length
+      notesNonLues: notes.filter((n) => !n.lu).length,
+      formations: (db?.formations ?? []).length,
+      formationsValidees: (db?.formations ?? []).filter((f) => f.valide).length
     })
   }
   res.setHeader('Cache-Control', 'no-store')
@@ -740,6 +753,46 @@ api.post('/notes/lu', requireAuth, async (req, res) => {
     await writeJsonAtomic(notesFile(acc), notes.map((n) => (ids.includes(n.id) ? { ...n, lu: true } : n)))
   })
   res.json({ ok: true })
+})
+
+api.get('/formations', requireAuth, (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store')
+  res.json(formations)
+})
+
+api.put('/formations', requireAuth, requireAdmin, async (req, res) => {
+  const liste = req.body
+  if (!Array.isArray(liste) || liste.some((s) => typeof s?.id !== 'string' || typeof s?.titre !== 'string' || !Array.isArray(s?.questions))) {
+    res.status(400).json({ error: 'Scénarios invalides' })
+    return
+  }
+  formations = liste as FormationScenario[]
+  await writeJsonAtomic(formationsFile, formations)
+  res.json(formations)
+})
+
+api.post('/formations/images', requireAuth, requireAdmin, express.raw({ type: () => true, limit: '25mb' }), async (req, res) => {
+  const buf = req.body as Buffer
+  const ext = Buffer.isBuffer(buf) ? imageExt(buf) : null
+  if (!ext) {
+    res.status(415).json({ error: 'Ce fichier n’est pas une image' })
+    return
+  }
+  const id = randomUUID()
+  const img: ImageRef = { id, file: `${id}.${ext}`, createdAt: new Date().toISOString() }
+  await writeFile(join(formationScreensDir, img.file), buf)
+  res.json(img)
+})
+
+api.get('/formations/images/:file', requireAuth, (req, res) => {
+  const file = String(req.params.file)
+  if (!IMAGE_NAME.test(file)) {
+    res.status(400).end()
+    return
+  }
+  res.sendFile(join(formationScreensDir, file), { headers: { 'Cache-Control': 'private, max-age=31536000, immutable' } }, (err) => {
+    if (err && !res.headersSent) res.status(404).end()
+  })
 })
 
 api.get('/weapons', requireAuth, async (req, res) => {

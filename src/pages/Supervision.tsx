@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Eye, Hand, MessageSquareWarning, RefreshCw, Send, UserRound } from 'lucide-react'
+import { CheckCircle2, Eye, GraduationCap, Hand, MessageSquareWarning, RefreshCw, Send, UserRound, XCircle } from 'lucide-react'
 import type { AgentSummary } from '@shared/types'
+import type { FormationResultat } from '@shared/formation'
 import { api } from '../api'
 import { useAuth } from '../auth'
 import { useControl } from '../control'
@@ -17,6 +18,23 @@ export function SupervisionPage() {
   const [erreur, setErreur] = useState('')
   const [messagePour, setMessagePour] = useState<string | null>(null)
   const [message, setMessage] = useState('')
+  const [formationsPour, setFormationsPour] = useState<string | null>(null)
+  const [formations, setFormations] = useState<FormationResultat[]>([])
+
+  async function voirFormations(agent: AgentSummary) {
+    if (formationsPour === agent.id) {
+      setFormationsPour(null)
+      return
+    }
+    setFormationsPour(agent.id)
+    setFormations([])
+    try {
+      const db = await api.adminDb(agent.id)
+      setFormations([...(db?.formations ?? [])].reverse())
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Lecture impossible')
+    }
+  }
 
   useEffect(() => {
     let vivant = true
@@ -82,6 +100,9 @@ export function SupervisionPage() {
                 <div className="row gap-8">
                   {a.enCours > 0 && <Badge tone="amber">{a.enCours} en cours</Badge>}
                   {a.notesNonLues > 0 && <Badge tone="blue">{a.notesNonLues} message(s) non lu(s)</Badge>}
+                  <button type="button" className="btn" onClick={() => void voirFormations(a)}>
+                    <GraduationCap size={15} /> Formations{a.formations ? ` (${a.formationsValidees}/${a.formations})` : ''}
+                  </button>
                   <button type="button" className="btn" onClick={() => setMessagePour(messagePour === a.id ? null : a.id)}>
                     <MessageSquareWarning size={15} /> Message
                   </button>
@@ -105,6 +126,39 @@ export function SupervisionPage() {
                   <small>screens</small>
                 </div>
               </div>
+
+              {formationsPour === a.id && (
+                <div className="stack gap-8" style={{ marginTop: 14 }}>
+                  {formations.length === 0 ? (
+                    <p className="muted small">Aucun exercice passé pour le moment.</p>
+                  ) : (
+                    formations.map((f, n) => (
+                      <div className="formation-resultat" key={n}>
+                        <div className="row gap-8">
+                          {f.valide ? <CheckCircle2 size={16} className="c-green" /> : <XCircle size={16} className="c-red" />}
+                          <strong>{f.titre}</strong>
+                          <Badge tone={f.valide ? 'green' : 'red'}>{f.pourcentage} %</Badge>
+                          <small className="muted">
+                            {dateTimeFr(f.date)} · {f.points}/{f.total}
+                          </small>
+                        </div>
+                        {f.rapport && <pre className="fiche-rapport">{f.rapport}</pre>}
+                        <details>
+                          <summary className="muted small">Voir le détail de la correction</summary>
+                          <div className="stack gap-6" style={{ marginTop: 8 }}>
+                            {f.details.map((d, k) => (
+                              <div className={`correction ${d.bon ? 'ok' : 'ko'}`} key={k}>
+                                {d.bon ? <CheckCircle2 size={15} /> : <XCircle size={15} />}
+                                <span>{d.libelle}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
 
               {messagePour === a.id && (
                 <div className="agent-message">

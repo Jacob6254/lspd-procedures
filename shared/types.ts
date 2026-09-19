@@ -111,6 +111,8 @@ export interface Settings {
   rapportCourt?: boolean
 }
 
+import type { FormationResultat } from './formation'
+
 export interface Db {
   version: 1
   /** Numéro de version géré par le serveur, pour que deux personnes ne s'écrasent pas. */
@@ -119,6 +121,8 @@ export interface Db {
   interventions: Intervention[]
   inbox: ImageRef[]
   learned: { drogues: string[]; autres: string[]; accusations: string[] }
+  /** Résultats des exercices de formation. */
+  formations?: FormationResultat[]
 }
 
 export interface Me {
@@ -157,4 +161,6 @@ export interface AgentSummary extends Me {
   screens: number
   majA: string | null
   notesNonLues: number
+  formations: number
+  formationsValidees: number
 }

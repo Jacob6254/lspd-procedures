@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Camera, Crosshair, Eye, FileText, Home, Images, LogOut, MonitorUp, Plus, Radio, Settings, Timer, X } from 'lucide-react'
+import { Camera, Crosshair, Eye, FileText, GraduationCap, Home, Images, LogOut, MonitorUp, Plus, Radio, Settings, Timer, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { type Route, SLOT_LABELS, interventionTitle, suspectName, useSaveStatus, useStore } from '../store'
 import { useScreenShare } from '../capture'
@@ -129,10 +129,14 @@ export function Sidebar() {
         <NavItem icon={Crosshair} label="Répertoire armes" active={is('armes')} onClick={() => go({ page: 'armes' })} />
         <NavItem icon={Radio} label="Code Radio" active={is('radio')} onClick={() => go({ page: 'radio' })} />
 
+        <div className="nav-section">Formation</div>
+        <NavItem icon={GraduationCap} label="Formation casier rookie" active={is('formation')} onClick={() => go({ page: 'formation' })} />
+
         {me?.role === 'admin' && (
           <>
             <div className="nav-section">Supervision</div>
             <NavItem icon={Eye} label="Procédures des agents" active={is('supervision')} onClick={() => go({ page: 'supervision' })} />
+            <NavItem icon={GraduationCap} label="Gestion formation" active={is('formation-admin')} onClick={() => go({ page: 'formation-admin' })} />
           </>
         )}
 

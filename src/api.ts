@@ -1,4 +1,5 @@
 import type { AccountInfo, AgentSummary, ConfigInscription, Db, ImageRef, Me, ModeInscription, SupervisionNote, WeaponData } from '@shared/types'
+import type { FormationScenario } from '@shared/formation'
 
 export class ApiError extends Error {
   constructor(
@@ -49,6 +50,11 @@ async function request<T>(method: string, path: string, body?: unknown, raw?: Bl
 
 export function imgUrl(file: string): string {
   return control ? adminImgUrl(control, file) : `/api/images/${encodeURIComponent(file)}`
+}
+
+/** Screen d'un scénario de formation (partagé par tout le monde). */
+export function formationImgUrl(file: string): string {
+  return `/api/formations/images/${encodeURIComponent(file)}`
 }
 
 /** Image d'un autre agent, vue depuis la supervision. */
@@ -107,6 +113,10 @@ export const api = {
   adminDb: (id: string) => request<Db | null>('GET', `/admin/agents/${id}/db`),
   adminSendNote: (id: string, note: { text: string; interventionId?: string; suspectId?: string }) =>
     request<SupervisionNote>('POST', `/admin/agents/${id}/notes`, note),
+
+  getFormations: () => request<FormationScenario[]>('GET', '/formations'),
+  saveFormations: (scenarios: FormationScenario[]) => request<FormationScenario[]>('PUT', '/formations', scenarios),
+  uploadFormationImage: (data: Blob) => request<ImageRef>('POST', '/formations/images', undefined, data),
 
   notes: () => request<SupervisionNote[]>('GET', '/notes'),
   markNotesRead: (ids: string[]) => request<{ ok: true }>('POST', '/notes/lu', { ids }),

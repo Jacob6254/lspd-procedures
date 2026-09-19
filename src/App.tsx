@@ -13,6 +13,8 @@ import { HistoriquePage } from './pages/Historique'
 import { ArmesPage } from './pages/Armes'
 import { CodesRadioPage } from './pages/CodesRadio'
 import { SupervisionPage } from './pages/Supervision'
+import { FormationPage } from './pages/Formation'
+import { FormationAdminPage } from './pages/FormationAdmin'
 import { NotesBanner } from './components/NotesBanner'
 import { ControlBanner } from './components/ControlBanner'
 import { hasUnsavedChanges } from './store'
@@ -86,6 +88,8 @@ function Workspace() {
         {route.page === 'armes' && <ArmesPage />}
         {route.page === 'radio' && <CodesRadioPage />}
         {route.page === 'supervision' && <SupervisionPage />}
+        {route.page === 'formation' && <FormationPage />}
+        {route.page === 'formation-admin' && <FormationAdminPage />}
         {route.page === 'screens' && <ScreensPage />}
         {route.page === 'reglages' && <ReglagesPage />}
       </main>
