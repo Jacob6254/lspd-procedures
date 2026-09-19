@@ -62,7 +62,8 @@ export function SupervisionPage() {
     }
   }
 
-  const autres = agents.filter((a) => a.id !== me?.id)
+  // On garde sa propre ligne : les essais de formation de l’admin doivent se voir aussi.
+  const autres = [...agents].sort((a, b) => (a.id === me?.id ? -1 : b.id === me?.id ? 1 : 0))
 
   return (
     <div className="page">
@@ -80,7 +81,7 @@ export function SupervisionPage() {
       {erreur && <div className="form-error">{erreur}</div>}
 
       {autres.length === 0 ? (
-        <Empty icon={UserRound} title="Aucun autre agent" text="Crée leurs comptes dans Réglages → Comptes des collègues." />
+        <Empty icon={UserRound} title="Aucun agent" text="Partage le lien du site pour que tes collègues créent leur compte." />
       ) : (
         <div className="stack gap-12">
           {autres.map((a) => (
@@ -91,7 +92,10 @@ export function SupervisionPage() {
                     <UserRound size={20} />
                   </span>
                   <div>
-                    <strong>{a.username}</strong>
+                    <strong>
+                      {a.username}
+                      {a.id === me?.id && <span className="muted small"> (toi)</span>}
+                    </strong>
                     <small className="muted">
                       {a.majA ? `Dernière activité : ${dateTimeFr(a.majA)}` : 'Aucune intervention pour le moment'}
                     </small>
@@ -101,14 +105,16 @@ export function SupervisionPage() {
                   {a.enCours > 0 && <Badge tone="amber">{a.enCours} en cours</Badge>}
                   {a.notesNonLues > 0 && <Badge tone="blue">{a.notesNonLues} message(s) non lu(s)</Badge>}
                   <button type="button" className="btn" onClick={() => void voirFormations(a)}>
-                    <GraduationCap size={15} /> Formations{a.formations ? ` (${a.formationsValidees}/${a.formations})` : ''}
+                    <GraduationCap size={15} /> Formations ({a.formationsValidees}/{a.formations})
                   </button>
                   <button type="button" className="btn" onClick={() => setMessagePour(messagePour === a.id ? null : a.id)}>
                     <MessageSquareWarning size={15} /> Message
                   </button>
-                  <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void prendre(a)}>
-                    <Hand size={15} /> Prendre la main
-                  </button>
+                  {a.id !== me?.id && (
+                    <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void prendre(a)}>
+                      <Hand size={15} /> Prendre la main
+                    </button>
+                  )}
                 </div>
               </div>
 
