@@ -49,7 +49,17 @@ export function FormationAdminPage() {
 
   async function enregistrer() {
     try {
-      const sauve = await api.saveFormations(liste)
+      const propre = liste.map((s) => ({
+        ...s,
+        attendu: {
+          ...s.attendu,
+          accusations: s.attendu.accusations.map((a) => a.trim()).filter(Boolean),
+          saisies: s.attendu.saisies.filter((x) => (x.type === 'argent' ? (x.quantite ?? 0) > 0 : x.label.trim().length > 0))
+        },
+        questions: s.questions.filter((q) => q.texte.trim()).map((q) => ({ ...q, options: q.options.filter((o) => o.texte.trim()) }))
+      }))
+      setListe(propre)
+      const sauve = await api.saveFormations(propre)
       remplacer(sauve)
       setModifie(false)
       toast('ok', 'Scénarios enregistrés : tous les agents les voient maintenant.')

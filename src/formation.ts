@@ -70,17 +70,20 @@ export function corriger(scenario: FormationScenario, choix: Record<string, stri
 
   const att = scenario.attendu
 
-  for (const a of att.accusations) {
+  const accusationsAttendues = att.accusations.map((a) => a.trim()).filter(Boolean)
+  const saisiesAttendues = att.saisies.filter((s) => (s.type === 'argent' ? (s.quantite ?? 0) > 0 : s.label.trim().length > 0))
+
+  for (const a of accusationsAttendues) {
     details.push({ libelle: `Accusation : ${a}`, bon: rep.accusations.some((x) => meme(x, a)), attendu: 'retenue' })
   }
-  const enTrop = rep.accusations.filter((x) => !att.accusations.some((a) => meme(a, x)))
+  const enTrop = rep.accusations.filter((x) => !accusationsAttendues.some((a) => meme(a, x)))
   details.push({
     libelle: 'Aucune accusation en trop',
     bon: enTrop.length === 0,
     donne: enTrop.join(', ')
   })
 
-  for (const s of att.saisies) {
+  for (const s of saisiesAttendues) {
     const nom = s.type === 'argent' ? 'argent non déclaré' : s.label
     const trouve = rep.saisies.find((x) => x.type === s.type && (s.type === 'argent' || meme(x.label, s.label)))
     details.push({
@@ -90,10 +93,11 @@ export function corriger(scenario: FormationScenario, choix: Record<string, stri
       donne: trouve ? String(trouve.quantite ?? '') : 'manquant'
     })
   }
-  if (att.saisies.length === 0) {
-    details.push({ libelle: 'Rien d’illégal sur lui', bon: rep.rienSurLui && rep.saisies.length === 0 })
+  if (saisiesAttendues.length === 0) {
+    // Rien à saisir : on ne vérifie que si l'admin a demandé la case « rien d'illégal sur lui ».
+    if (att.rienSurLui) details.push({ libelle: 'Rien d’illégal sur lui', bon: rep.rienSurLui && rep.saisies.length === 0 })
   } else {
-    const saisiesEnTrop = rep.saisies.filter((x) => !att.saisies.some((s) => s.type === x.type && (s.type === 'argent' || meme(s.label, x.label))))
+    const saisiesEnTrop = rep.saisies.filter((x) => !saisiesAttendues.some((s) => s.type === x.type && (s.type === 'argent' || meme(s.label, x.label))))
     details.push({ libelle: 'Aucune saisie en trop', bon: saisiesEnTrop.length === 0, donne: saisiesEnTrop.map((x) => x.label).join(', ') })
   }
 
