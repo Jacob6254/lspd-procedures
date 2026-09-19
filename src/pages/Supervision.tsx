@@ -8,6 +8,7 @@ import { useControl } from '../control'
 import { useStore } from '../store'
 import { dateTimeFr } from '../lib/format'
 import { Badge, Empty, PageHeader, Panel, TextArea } from '../components/ui'
+import { Correction } from '../components/Correction'
 
 export function SupervisionPage() {
   const me = useAuth((s) => s.me)
@@ -151,13 +152,8 @@ export function SupervisionPage() {
                         {f.rapport && <pre className="fiche-rapport">{f.rapport}</pre>}
                         <details>
                           <summary className="muted small">Voir le détail de la correction</summary>
-                          <div className="stack gap-6" style={{ marginTop: 8 }}>
-                            {f.details.map((d, k) => (
-                              <div className={`correction ${d.bon ? 'ok' : 'ko'}`} key={k}>
-                                {d.bon ? <CheckCircle2 size={15} /> : <XCircle size={15} />}
-                                <span>{d.libelle}</span>
-                              </div>
-                            ))}
+                          <div style={{ marginTop: 8 }}>
+                            <Correction details={f.details} />
                           </div>
                         </details>
                       </div>

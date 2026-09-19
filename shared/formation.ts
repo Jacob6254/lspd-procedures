@@ -60,11 +60,20 @@ export interface ReponseDossier {
   rapport: string
 }
 
+export interface OptionCorrigee {
+  texte: string
+  bon: boolean
+  choisi: boolean
+}
+
 export interface PointCorrige {
   libelle: string
   bon: boolean
   attendu?: string
   donne?: string
+  /** Pour une question : les réponses proposées, avec la bonne et celle du rookie. */
+  options?: OptionCorrigee[]
+  partie?: 'question' | 'dossier'
 }
 
 export interface FormationResultat {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, CheckCircle2, ClipboardCheck, GraduationCap, Lock, PlayCircle, Timer, XCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ClipboardCheck, GraduationCap, Lock, PlayCircle, Timer } from 'lucide-react'
 import type { FormationResultat, FormationScenario, ReponseDossier } from '@shared/formation'
 import { SEUIL_REUSSITE } from '@shared/formation'
 import type { Cooperation, Suspect, YesNo } from '@shared/types'
@@ -11,6 +11,7 @@ import { accusationSuggestions } from '../data/infractions'
 import { dateTimeFr } from '../lib/format'
 import { Badge, ChipsInput, Empty, Field, PageHeader, Panel, Segmented, TextArea } from '../components/ui'
 import { SaisiesEditor } from '../components/SaisiesEditor'
+import { Correction } from '../components/Correction'
 
 function duree(secondes: number): string {
   const m = Math.floor(secondes / 60)
@@ -340,13 +341,8 @@ function Recap({ resultat, onFermer }: { resultat: FormationResultat; onFermer: 
         </div>
       </div>
 
-      <div className="stack gap-6" style={{ marginTop: 16 }}>
-        {resultat.details.map((d, n) => (
-          <div className={`correction ${d.bon ? 'ok' : 'ko'}`} key={n}>
-            {d.bon ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
-            <span>{d.libelle}</span>
-          </div>
-        ))}
+      <div style={{ marginTop: 16 }}>
+        <Correction details={resultat.details} />
       </div>
 
       {resultat.rapport && (

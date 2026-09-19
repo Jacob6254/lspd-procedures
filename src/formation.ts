@@ -57,14 +57,8 @@ export function corriger(scenario: FormationScenario, choix: Record<string, stri
     details.push({
       libelle: q.texte,
       bon,
-      attendu: q.options
-        .filter((o) => o.bon)
-        .map((o) => o.texte)
-        .join(', '),
-      donne: q.options
-        .filter((o) => donnes.includes(o.id))
-        .map((o) => o.texte)
-        .join(', ')
+      partie: 'question',
+      options: q.options.map((o) => ({ texte: o.texte, bon: o.bon, choisi: donnes.includes(o.id) }))
     })
   }
 
@@ -74,13 +68,13 @@ export function corriger(scenario: FormationScenario, choix: Record<string, stri
   const saisiesAttendues = att.saisies.filter((s) => (s.type === 'argent' ? (s.quantite ?? 0) > 0 : s.label.trim().length > 0))
 
   for (const a of accusationsAttendues) {
-    details.push({ libelle: `Accusation : ${a}`, bon: rep.accusations.some((x) => meme(x, a)), attendu: 'retenue' })
+    details.push({ libelle: `Accusation : ${a}`, bon: rep.accusations.some((x) => meme(x, a)), attendu: 'retenue', partie: 'dossier' })
   }
   const enTrop = rep.accusations.filter((x) => !accusationsAttendues.some((a) => meme(a, x)))
   details.push({
-    libelle: 'Aucune accusation en trop',
+    libelle: enTrop.length ? `Accusations en trop : ${enTrop.join(', ')}` : 'Aucune accusation en trop',
     bon: enTrop.length === 0,
-    donne: enTrop.join(', ')
+    partie: 'dossier'
   })
 
   for (const s of saisiesAttendues) {
@@ -90,25 +84,51 @@ export function corriger(scenario: FormationScenario, choix: Record<string, stri
       libelle: `Saisie : ${s.quantite ?? '?'} × ${nom}`,
       bon: !!trouve && trouve.quantite === s.quantite,
       attendu: String(s.quantite ?? ''),
-      donne: trouve ? String(trouve.quantite ?? '') : 'manquant'
+      donne: trouve ? String(trouve.quantite ?? '') : 'manquant',
+      partie: 'dossier'
     })
   }
   if (saisiesAttendues.length === 0) {
     // Rien à saisir : on ne vérifie que si l'admin a demandé la case « rien d'illégal sur lui ».
-    if (att.rienSurLui) details.push({ libelle: 'Rien d’illégal sur lui', bon: rep.rienSurLui && rep.saisies.length === 0 })
+    if (att.rienSurLui) details.push({ libelle: 'Rien d’illégal sur lui', bon: rep.rienSurLui && rep.saisies.length === 0, partie: 'dossier' })
   } else {
     const saisiesEnTrop = rep.saisies.filter((x) => !saisiesAttendues.some((s) => s.type === x.type && (s.type === 'argent' || meme(s.label, x.label))))
-    details.push({ libelle: 'Aucune saisie en trop', bon: saisiesEnTrop.length === 0, donne: saisiesEnTrop.map((x) => x.label).join(', ') })
+    details.push({
+      libelle: saisiesEnTrop.length ? `Saisies en trop : ${saisiesEnTrop.map((x) => x.label || 'argent').join(', ')}` : 'Aucune saisie en trop',
+      bon: saisiesEnTrop.length === 0,
+      partie: 'dossier'
+    })
   }
 
-  if (att.recherche) details.push({ libelle: 'Avis de recherche vérifié', bon: rep.recherche === att.recherche, attendu: att.recherche })
-  if (att.bracelet) details.push({ libelle: 'Bracelet vérifié', bon: rep.bracelet === att.bracelet, attendu: att.bracelet })
+  const ouiNon = (v: string | null) => (v === 'oui' ? 'Oui' : v === 'non' ? 'Non' : 'non renseigné')
+  if (att.recherche) {
+    details.push({
+      libelle: `Avis de recherche : ${ouiNon(att.recherche)}`,
+      bon: rep.recherche === att.recherche,
+      donne: ouiNon(rep.recherche),
+      partie: 'dossier'
+    })
+  }
+  if (att.bracelet) {
+    details.push({
+      libelle: `Bracelet : ${ouiNon(att.bracelet)}`,
+      bon: rep.bracelet === att.bracelet,
+      donne: ouiNon(rep.bracelet),
+      partie: 'dossier'
+    })
+  }
   if (att.ppa !== null) {
-    details.push({ libelle: 'PPA du suspect', bon: rep.ppa === att.ppa, attendu: att.ppa === 0 ? 'aucun' : `niveau ${att.ppa}` })
+    const nom = (v: number | null) => (v === null ? 'non renseigné' : v === 0 ? 'aucun' : `niveau ${v}`)
+    details.push({ libelle: `PPA : ${nom(att.ppa)}`, bon: rep.ppa === att.ppa, donne: nom(rep.ppa), partie: 'dossier' })
   }
   if (att.cooperation) {
-    const label = COOPERATION.find((c) => c.key === att.cooperation)?.label ?? att.cooperation
-    details.push({ libelle: 'Coopérativité', bon: rep.cooperation === att.cooperation, attendu: label })
+    const nom = (k: string | null) => COOPERATION.find((c) => c.key === k)?.label ?? 'non renseignée'
+    details.push({
+      libelle: `Coopérativité : ${nom(att.cooperation)}`,
+      bon: rep.cooperation === att.cooperation,
+      donne: nom(rep.cooperation),
+      partie: 'dossier'
+    })
   }
 
   const points = details.filter((d) => d.bon).length

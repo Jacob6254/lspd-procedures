@@ -2746,3 +2746,74 @@ kbd {
 .formation-resultat summary {
   cursor: pointer;
 }
+
+/* ---------- Copie corrigée ---------- */
+
+.copie {
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+}
+.copie.ok {
+  border-color: var(--green-border);
+}
+.copie.ko {
+  border-color: var(--red-border);
+}
+.copie-question {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.copie-question strong {
+  font-family: var(--title);
+  font-weight: 600;
+  font-size: 14px;
+}
+.copie.ok .copie-question svg {
+  color: var(--green);
+}
+.copie.ko .copie-question svg {
+  color: var(--red);
+}
+.copie-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #0c0c0e;
+  color: var(--muted);
+  font-size: 13px;
+}
+.copie-option small {
+  margin-left: auto;
+  font-family: var(--title);
+  font-weight: 700;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.copie-option.juste {
+  color: #7fdc9f;
+  background: var(--green-soft);
+  border-color: var(--green-border);
+}
+.copie-option.manquee {
+  color: #7fdc9f;
+  border-color: var(--green-border);
+}
+.copie-option.faux {
+  color: #ffa3a6;
+  background: var(--red-soft);
+  border-color: var(--red-border);
+}
+.copie-option.neutre svg {
+  opacity: 0.4;
+}
+.correction small {
+  margin-left: auto;
+}
