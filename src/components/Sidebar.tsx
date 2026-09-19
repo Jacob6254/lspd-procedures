@@ -154,8 +154,9 @@ export function Sidebar() {
         <span className="sidebar-foot-text">
           <strong>{me?.username}</strong>
           <small>
-            {save === 'error' ? 'Non enregistré, nouvel essai…' : save === 'saving' ? 'Enregistrement…' : 'Enregistré'}
-            {matricule ? ` · Matricule ${matricule}` : ''}
+            {me?.grade}
+            {me?.leadNego ? ' · Lead Négo' : ''}
+            {matricule ? ` · ${matricule}` : ''}
           </small>
         </span>
         <button type="button" className="btn btn-icon btn-ghost" title="Se déconnecter" onClick={() => void logout()}>

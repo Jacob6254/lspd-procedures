@@ -6,6 +6,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { AccountInfo, AgentSummary, ConfigInscription, Db, ImageRef, Me, ModeInscription, SupervisionNote, WeaponData } from '../shared/types'
 import type { FormationScenario } from '../shared/formation'
+import { GRADES, GRADE_DEFAUT } from '../shared/grades'
 import { FORMATIONS_DEFAUT } from './formations-default'
 
 const PORT = Number(process.env.PORT ?? 3000)
@@ -33,6 +34,8 @@ interface Account {
   id: string
   username: string
   role: 'admin' | 'user'
+  grade?: string
+  leadNego?: boolean
   salt: string
   hash: string
   tokenVersion: number
@@ -65,7 +68,13 @@ async function checkPassword(password: string, acc: Account): Promise<boolean> {
   return got.length === want.length && timingSafeEqual(got, want)
 }
 
-const toMe = (a: Account): Me => ({ id: a.id, username: a.username, role: a.role })
+const toMe = (a: Account): Me => ({
+  id: a.id,
+  username: a.username,
+  role: a.role,
+  grade: a.grade ?? GRADE_DEFAUT,
+  leadNego: a.leadNego ?? false
+})
 
 function validUsername(u: unknown): u is string {
   return typeof u === 'string' && /^[a-zA-Z0-9_.-]{2,32}$/.test(u)
@@ -506,6 +515,26 @@ api.post('/accounts', requireAuth, requireAdmin, async (req, res) => {
   accounts.push(acc)
   await saveAccounts()
   res.json({ ...toMe(acc), createdAt: acc.createdAt })
+})
+
+// L'admin fixe le grade en jeu et le rôle de formateur négociation.
+api.put('/accounts/:id/grade', requireAuth, requireAdmin, async (req, res) => {
+  const acc = accounts.find((a) => a.id === req.params.id)
+  if (!acc) {
+    res.status(404).json({ error: 'Compte introuvable' })
+    return
+  }
+  const { grade, leadNego } = req.body ?? {}
+  if (typeof grade === 'string') {
+    if (!GRADES.includes(grade as (typeof GRADES)[number])) {
+      res.status(400).json({ error: 'Grade inconnu' })
+      return
+    }
+    acc.grade = grade
+  }
+  if (typeof leadNego === 'boolean') acc.leadNego = leadNego
+  await saveAccounts()
+  res.json(toMe(acc))
 })
 
 api.put('/accounts/:id/password', requireAuth, requireAdmin, async (req, res) => {

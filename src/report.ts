@@ -260,7 +260,7 @@ export interface Check {
 }
 
 /** Ce qui manque pour éviter un vice de procédure. Rien n'est bloquant. */
-export function checkSuspect(i: Intervention, s: Suspect, settings: Settings, weapons: Map<string, Weapon>): Check[] {
+export function checkSuspect(i: Intervention, s: Suspect, settings: Settings, weapons: Map<string, Weapon>, sansScreens = false): Check[] {
   const out: Check[] = []
   const add = (level: Check['level'], step: Check['step'], text: string) => out.push({ level, text, step })
 
@@ -270,14 +270,14 @@ export function checkSuspect(i: Intervention, s: Suspect, settings: Settings, we
   if (i.matricules.filter((m) => m.trim()).length === 0) add('error', 'commun', 'Aucun matricule d’agent présent.')
 
   if (!s.prenom.trim() || !s.nom.trim()) add('error', 'identite', 'Nom ou prénom du suspect manquant.')
-  if (s.photo.length === 0) add('warn', 'identite', 'Pas de photo du suspect.')
-  if (s.identite.length === 0) add('warn', 'identite', 'Pas de screen de la carte d’identité.')
+  if (!sansScreens && s.photo.length === 0) add('warn', 'identite', 'Pas de photo du suspect.')
+  if (!sansScreens && s.identite.length === 0) add('warn', 'identite', 'Pas de screen de la carte d’identité.')
   if (s.recherche === null) add('warn', 'identite', 'Avis de recherche non vérifié.')
   if (s.bracelet === null) add('warn', 'identite', 'Bracelet non vérifié.')
 
   if (!s.mirandaLusA) add('warn', 'miranda', 'Droits Miranda pas marqués comme lus.')
 
-  if (s.fouilleScreens.length === 0) add('warn', 'fouille', 'Pas de screen de la fouille.')
+  if (!sansScreens && s.fouilleScreens.length === 0) add('warn', 'fouille', 'Pas de screen de la fouille.')
   if (s.saisies.length === 0 && !s.rienSurLui) add('error', 'fouille', 'Fouille non renseignée (objets saisis ou « rien sur lui »).')
   for (const x of s.saisies) {
     const name = x.label.trim() || (x.type === 'argent' ? 'argent sale' : 'un objet')
@@ -293,8 +293,8 @@ export function checkSuspect(i: Intervention, s: Suspect, settings: Settings, we
   if (s.accusations.length === 0) add('error', 'comportement', 'Aucune accusation retenue.')
 
   if ((s.checklist?.length ?? 0) < CHECKLIST_TOTAL) add('warn', 'checklist', 'Checklist de fin de procédure non terminée.')
-  if (s.amendesScreens.length === 0) add('warn', 'sanction', 'Pas de screen des amendes.')
-  if (s.casierScreens.length === 0) add('warn', 'sanction', 'Pas de screen de l’ajout au casier.')
+  if (!sansScreens && s.amendesScreens.length === 0) add('warn', 'sanction', 'Pas de screen des amendes.')
+  if (!sansScreens && s.casierScreens.length === 0) add('warn', 'sanction', 'Pas de screen de l’ajout au casier.')
   return out
 }
 

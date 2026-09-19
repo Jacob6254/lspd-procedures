@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   CheckCircle2,
   CircleAlert,
   ClipboardCopy,
   ClipboardList,
+  Eye,
+  EyeOff,
   FileText,
   ListChecks,
   Fingerprint,
@@ -24,6 +26,8 @@ import { type StepKey, interventionImages, interventionTitle, suspectName, useSt
 import { COMPORTEMENTS, COOPERATION, REPORT_LIMIT, SAISIE_GROUPS, type Check, checkSuspect, generateReport, lowerFirst, stepState } from '../report'
 import { INFRACTIONS, accusationSuggestions } from '../data/infractions'
 import { CHECKLIST, CHECKLIST_TOTAL } from '../data/checklist'
+import { ETAPES_REDUITES, visibiliteDossier } from '@shared/grades'
+import { useAuth } from '../auth'
 import { COULEURS, TYPES_VEHICULE, decrireVehicule } from '../data/vehicules'
 import {
   PHRASES_AUTRES,
@@ -41,6 +45,9 @@ import { Badge, ChipsInput, ConfirmButton, Empty, Field, PageHeader, Panel, Phra
 import { Lightbox, ScreenSlot } from '../components/ScreenSlot'
 import { api, imgUrl } from '../api'
 import { SaisiesEditor } from '../components/SaisiesEditor'
+
+/** Vrai quand le grade de l'agent masque les zones de screens. */
+const SansScreens = createContext(false)
 
 const STEPS: { key: StepKey; label: string; icon: typeof IdCard }[] = [
   { key: 'identite', label: 'Identité', icon: IdCard },
@@ -62,6 +69,8 @@ export function DossierPage(props: { id: string; tab: string; step: StepKey }) {
   const updateIntervention = useStore((s) => s.updateIntervention)
   const deleteIntervention = useStore((s) => s.deleteIntervention)
   const { byId } = useWeaponsLoaded()
+  const me = useAuth((s) => s.me)
+  const sansScreensGrade = visibiliteDossier(me?.grade) !== 'tout'
 
   if (!intervention) return null
   const i = intervention
@@ -95,7 +104,7 @@ export function DossierPage(props: { id: string; tab: string; step: StepKey }) {
           <Siren size={15} /> Faits communs
         </button>
         {i.suspects.map((s) => {
-          const checks = checkSuspect(i, s, settings, byId)
+          const checks = checkSuspect(i, s, settings, byId, sansScreensGrade)
           const errors = checks.filter((c) => c.level === 'error').length
           return (
             <button
@@ -321,9 +330,11 @@ function CommunForm({ intervention: i, settings }: { intervention: Intervention;
       </div>
 
       <div className="stack">
-        <Panel title="Screens de la scène">
-          <ScreenSlot target={{ interventionId: i.id, suspectId: null, slot: 'sceneScreens' }} images={i.sceneScreens} title="Scène / trajet" />
-        </Panel>
+        {visibiliteDossier(useAuth.getState().me?.grade) === 'tout' && (
+          <Panel title="Screens de la scène">
+            <ScreenSlot target={{ interventionId: i.id, suspectId: null, slot: 'sceneScreens' }} images={i.sceneScreens} title="Scène / trajet" />
+          </Panel>
+        )}
         <Panel title="Suspects">
           <div className="stack gap-8">
             {i.suspects.map((s) => (
@@ -352,20 +363,35 @@ function SuspectView(props: { intervention: Intervention; suspect: Suspect; step
   const updateSuspect = useStore((st) => st.updateSuspect)
   const removeSuspect = useStore((st) => st.removeSuspect)
   const { byId } = useWeaponsLoaded()
+  const me = useAuth((st) => st.me)
+  const [toutAfficher, setToutAfficher] = useState(false)
+  const visibilite = visibiliteDossier(me?.grade)
+  const sansScreens = visibilite !== 'tout' && !toutAfficher
+  const reduit = visibilite === 'reduit' && !toutAfficher
+  const etapes = reduit ? STEPS.filter((x) => (ETAPES_REDUITES as readonly string[]).includes(x.key)) : STEPS
   const set: SetSuspect = (p) => updateSuspect(i.id, s.id, typeof p === 'function' ? p : () => p)
-  const checks = useMemo(() => checkSuspect(i, s, settings, byId), [i, s, settings, byId])
-  const idx = STEPS.findIndex((x) => x.key === step)
+  const checks = useMemo(() => checkSuspect(i, s, settings, byId, sansScreens), [i, s, settings, byId, sansScreens])
+  const idx = etapes.findIndex((x) => x.key === step)
+
+  useEffect(() => {
+    if (idx === -1 && etapes.length) openDossier(i.id, s.id, etapes[0].key)
+  }, [idx, etapes, openDossier, i.id, s.id])
 
   return (
     <div className="suspect-layout">
       <aside className="steps">
-        {STEPS.map((st, n) => (
+        {etapes.map((st, n) => (
           <button type="button" key={st.key} className={`step ${st.key === step ? 'active' : ''}`} onClick={() => openDossier(i.id, s.id, st.key)}>
             <span className="step-num">{n + 1}</span>
             <span className="step-label">{st.label}</span>
             {st.key !== 'rapport' && st.key !== 'fiche' && <StepIcon state={stepState(checks, st.key)} />}
           </button>
         ))}
+        {visibilite !== 'tout' && (
+          <button type="button" className="btn steps-remove" onClick={() => setToutAfficher(!toutAfficher)}>
+            {toutAfficher ? <EyeOff size={15} /> : <Eye size={15} />} {toutAfficher ? 'Vue de mon grade' : 'Tout afficher'}
+          </button>
+        )}
         {i.suspects.length > 1 && (
           <ConfirmButton
             icon={Trash2}
@@ -378,6 +404,7 @@ function SuspectView(props: { intervention: Intervention; suspect: Suspect; step
       </aside>
 
       <div className="step-body">
+        <SansScreens.Provider value={sansScreens}>
         {step === 'identite' && <IdentiteStep i={i} s={s} set={set} />}
         {step === 'miranda' && <MirandaStep i={i} s={s} set={set} />}
         {step === 'fouille' && <FouilleStep i={i} s={s} set={set} />}
@@ -387,17 +414,19 @@ function SuspectView(props: { intervention: Intervention; suspect: Suspect; step
         {step === 'checklist' && <ChecklistStep s={s} set={set} />}
         {step === 'fiche' && <FicheStep i={i} s={s} />}
 
+        </SansScreens.Provider>
+
         <div className="step-nav">
           {idx > 0 ? (
-            <button type="button" className="btn" onClick={() => openDossier(i.id, s.id, STEPS[idx - 1].key)}>
-              ← {STEPS[idx - 1].label}
+            <button type="button" className="btn" onClick={() => openDossier(i.id, s.id, etapes[idx - 1].key)}>
+              ← {etapes[idx - 1].label}
             </button>
           ) : (
             <span />
           )}
-          {idx < STEPS.length - 1 && (
-            <button type="button" className="btn btn-primary" onClick={() => openDossier(i.id, s.id, STEPS[idx + 1].key)}>
-              {STEPS[idx + 1].label} →
+          {idx >= 0 && idx < etapes.length - 1 && (
+            <button type="button" className="btn btn-primary" onClick={() => openDossier(i.id, s.id, etapes[idx + 1].key)}>
+              {etapes[idx + 1].label} →
             </button>
           )}
         </div>
@@ -476,6 +505,7 @@ function IdentiteStep({ i, s, set }: StepProps) {
           </Field>
         </div>
       </Panel>
+      {useContext(SansScreens) ? null : (
       <div className="stack">
         <Panel>
           <ScreenSlot
@@ -491,6 +521,7 @@ function IdentiteStep({ i, s, set }: StepProps) {
           <ScreenSlot target={{ interventionId: i.id, suspectId: s.id, slot: 'identite' }} images={s.identite} title="Carte d’identité" />
         </Panel>
       </div>
+      )}
     </div>
   )
 }
@@ -562,13 +593,15 @@ function MirandaStep({ i, s, set }: StepProps) {
 function FouilleStep({ i, s, set }: StepProps) {
   return (
     <div className="stack">
-      <Panel title="Screens de la fouille" icon={PackageSearch}>
-        <ScreenSlot
-          target={{ interventionId: i.id, suspectId: s.id, slot: 'fouilleScreens' }}
-          images={s.fouilleScreens}
-          title="Inventaire (individu + sac)"
-        />
-      </Panel>
+      {!useContext(SansScreens) && (
+        <Panel title="Screens de la fouille" icon={PackageSearch}>
+          <ScreenSlot
+            target={{ interventionId: i.id, suspectId: s.id, slot: 'fouilleScreens' }}
+            images={s.fouilleScreens}
+            title="Inventaire (individu + sac)"
+          />
+        </Panel>
+      )}
       <Panel title="Objets saisis" icon={Gavel} right={<span className="muted small">Tout ce qui est illégal, avec la quantité exacte</span>}>
         <SaisiesEditor suspect={s} onChange={set} />
       </Panel>
@@ -656,6 +689,9 @@ function ComportementStep({ s, set }: { s: Suspect; set: SetSuspect }) {
 }
 
 function SanctionStep({ i, s }: { i: Intervention; s: Suspect }) {
+  if (useContext(SansScreens)) {
+    return <p className="muted">Les screens ne sont pas demandés pour ton grade. Passe directement au rapport.</p>
+  }
   return (
     <div className="dossier-grid even">
       <Panel title="Amendes" icon={Gavel}>

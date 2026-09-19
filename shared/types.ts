@@ -129,6 +129,10 @@ export interface Me {
   id: string
   username: string
   role: 'admin' | 'user'
+  /** Grade en jeu (Rookie, Officier 1…), choisi par un admin. */
+  grade: string
+  /** Formateur négociation, désigné par un admin. */
+  leadNego: boolean
 }
 
 export interface AccountInfo extends Me {
