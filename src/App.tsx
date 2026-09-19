@@ -15,6 +15,11 @@ import { CodesRadioPage } from './pages/CodesRadio'
 import { SupervisionPage } from './pages/Supervision'
 import { FormationPage } from './pages/Formation'
 import { FormationAdminPage } from './pages/FormationAdmin'
+import { NegoPage } from './pages/Nego'
+import { NegoSuiviPage } from './pages/NegoSuivi'
+import { NegoMemoPage } from './pages/NegoMemo'
+import { NegoAdminPage } from './pages/NegoAdmin'
+import { examenEnCours, useNego } from './nego'
 import { NotesBanner } from './components/NotesBanner'
 import { ControlBanner } from './components/ControlBanner'
 import { hasUnsavedChanges } from './store'
@@ -29,6 +34,7 @@ function Workspace() {
   const go = useStore((s) => s.go)
   const exists = useStore((s) => route.page !== 'dossier' || s.db.interventions.some((i) => i.id === route.id))
   const [error, setError] = useState('')
+  const negoSession = useNego((s) => s.session)
   useCaptureBridge()
 
   useEffect(() => {
@@ -38,6 +44,7 @@ function Workspace() {
       .then(init)
       .catch((err) => setError(err instanceof Error ? err.message : 'Chargement impossible'))
     void useWeapons.getState().load()
+    void useNego.getState().charger()
   }, [ready, init])
 
   useEffect(() => {
@@ -76,6 +83,17 @@ function Workspace() {
   }
   if (!ready) return <div className="splash">Chargement de tes dossiers…</div>
 
+  // Pendant l'examen de négociation, le reste du site est inaccessible.
+  if (examenEnCours(negoSession)) {
+    return (
+      <div className="app app-examen">
+        <main className="main">
+          <NegoPage />
+        </main>
+      </div>
+    )
+  }
+
   return (
     <div className="app">
       <Sidebar />
@@ -90,6 +108,10 @@ function Workspace() {
         {route.page === 'supervision' && <SupervisionPage />}
         {route.page === 'formation' && <FormationPage />}
         {route.page === 'formation-admin' && <FormationAdminPage />}
+        {route.page === 'nego' && <NegoPage />}
+        {route.page === 'nego-suivi' && <NegoSuiviPage />}
+        {route.page === 'nego-memo' && <NegoMemoPage />}
+        {route.page === 'nego-admin' && <NegoAdminPage />}
         {route.page === 'screens' && <ScreensPage />}
         {route.page === 'reglages' && <ReglagesPage />}
       </main>

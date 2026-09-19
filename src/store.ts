@@ -19,6 +19,10 @@ export type Route =
   | { page: 'supervision' }
   | { page: 'formation' }
   | { page: 'formation-admin' }
+  | { page: 'nego' }
+  | { page: 'nego-suivi' }
+  | { page: 'nego-memo' }
+  | { page: 'nego-admin' }
   | { page: 'screens' }
   | { page: 'reglages' }
 

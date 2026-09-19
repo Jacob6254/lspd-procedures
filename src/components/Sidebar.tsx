@@ -1,10 +1,30 @@
 import { useEffect, useRef } from 'react'
-import { Camera, Crosshair, Eye, FileText, GraduationCap, Home, Images, LogOut, MonitorUp, Plus, Radio, Settings, Shield, Timer, X } from 'lucide-react'
+import {
+  Camera,
+  ClipboardList,
+  Crosshair,
+  Eye,
+  FileText,
+  GraduationCap,
+  Handshake,
+  Home,
+  Images,
+  LogOut,
+  MonitorUp,
+  Plus,
+  Radio,
+  Settings,
+  Shield,
+  ShieldAlert,
+  Timer,
+  X
+} from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { type Route, SLOT_LABELS, interventionTitle, suspectName, useSaveStatus, useStore } from '../store'
 import { useScreenShare } from '../capture'
 import { useAuth } from '../auth'
 import { GRADE_DEFAUT } from '@shared/grades'
+import { accesMemoNego, estFormateurNego } from '../nego'
 
 export function Badge3D() {
   return (
@@ -138,12 +158,20 @@ export function Sidebar() {
 
         <div className="nav-section">Formation</div>
         <NavItem icon={GraduationCap} label="Formation casier rookie" active={is('formation')} onClick={() => go({ page: 'formation' })} />
+        <NavItem icon={Handshake} label="Formation négociation" active={is('nego')} onClick={() => go({ page: 'nego' })} />
+        {estFormateurNego(me) && (
+          <NavItem icon={Eye} label="Suivi négociation" active={is('nego-suivi')} onClick={() => go({ page: 'nego-suivi' })} />
+        )}
+        {accesMemoNego(me) && (
+          <NavItem icon={ShieldAlert} label="Mémo négociation" active={is('nego-memo')} onClick={() => go({ page: 'nego-memo' })} />
+        )}
 
         {me?.role === 'admin' && (
           <>
             <div className="nav-section">Supervision</div>
             <NavItem icon={Eye} label="Procédures des agents" active={is('supervision')} onClick={() => go({ page: 'supervision' })} />
             <NavItem icon={GraduationCap} label="Gestion formation" active={is('formation-admin')} onClick={() => go({ page: 'formation-admin' })} />
+            <NavItem icon={ClipboardList} label="Questionnaire négo" active={is('nego-admin')} onClick={() => go({ page: 'nego-admin' })} />
           </>
         )}
 
