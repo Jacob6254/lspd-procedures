@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react'
-import { Camera, Crosshair, Eye, FileText, GraduationCap, Home, Images, LogOut, MonitorUp, Plus, Radio, Settings, Timer, X } from 'lucide-react'
+import { Camera, Crosshair, Eye, FileText, GraduationCap, Home, Images, LogOut, MonitorUp, Plus, Radio, Settings, Shield, Timer, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { type Route, SLOT_LABELS, interventionTitle, suspectName, useSaveStatus, useStore } from '../store'
 import { useScreenShare } from '../capture'
 import { useAuth } from '../auth'
+import { GRADE_DEFAUT } from '@shared/grades'
 
 export function Badge3D() {
   return (
@@ -98,6 +99,12 @@ export function Sidebar() {
           <strong>L.S.P.D Procédures</strong>
           <span>OUTIL DE PROCÉDURE</span>
         </div>
+      </div>
+
+      <div className="grade-chip" title="Ton grade en jeu, réglé par un admin dans Supervision">
+        <Shield size={14} />
+        <strong>{me?.grade ?? GRADE_DEFAUT}</strong>
+        {me?.leadNego && <em>Lead Négo</em>}
       </div>
 
       <nav className="nav">
