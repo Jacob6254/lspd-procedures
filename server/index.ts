@@ -35,7 +35,6 @@ interface Account {
   username: string
   role: 'admin' | 'user'
   grade?: string
-  leadNego?: boolean
   salt: string
   hash: string
   tokenVersion: number
@@ -72,8 +71,7 @@ const toMe = (a: Account): Me => ({
   id: a.id,
   username: a.username,
   role: a.role,
-  grade: a.grade ?? GRADE_DEFAUT,
-  leadNego: a.leadNego ?? false
+  grade: a.grade ?? GRADE_DEFAUT
 })
 
 function validUsername(u: unknown): u is string {
@@ -517,14 +515,14 @@ api.post('/accounts', requireAuth, requireAdmin, async (req, res) => {
   res.json({ ...toMe(acc), createdAt: acc.createdAt })
 })
 
-// L'admin fixe le grade en jeu et le rôle de formateur négociation.
+// L'admin fixe le grade en jeu de l'agent.
 api.put('/accounts/:id/grade', requireAuth, requireAdmin, async (req, res) => {
   const acc = accounts.find((a) => a.id === req.params.id)
   if (!acc) {
     res.status(404).json({ error: 'Compte introuvable' })
     return
   }
-  const { grade, leadNego } = req.body ?? {}
+  const { grade } = req.body ?? {}
   if (typeof grade === 'string') {
     if (!GRADES.includes(grade as (typeof GRADES)[number])) {
       res.status(400).json({ error: 'Grade inconnu' })
@@ -532,7 +530,6 @@ api.put('/accounts/:id/grade', requireAuth, requireAdmin, async (req, res) => {
     }
     acc.grade = grade
   }
-  if (typeof leadNego === 'boolean') acc.leadNego = leadNego
   await saveAccounts()
   res.json(toMe(acc))
 })

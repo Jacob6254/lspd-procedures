@@ -7,7 +7,7 @@ import { useAuth } from '../auth'
 import { useControl } from '../control'
 import { useStore } from '../store'
 import { dateTimeFr } from '../lib/format'
-import { Badge, Empty, PageHeader, Panel, TextArea, Toggle } from '../components/ui'
+import { Badge, Empty, PageHeader, Panel, TextArea } from '../components/ui'
 import { GRADES } from '@shared/grades'
 import { Correction } from '../components/Correction'
 
@@ -65,11 +65,11 @@ export function SupervisionPage() {
   }
 
   // On garde sa propre ligne : les essais de formation de l’admin doivent se voir aussi.
-  async function changerGrade(agent: AgentSummary, patch: { grade?: string; leadNego?: boolean }) {
+  async function changerGrade(agent: AgentSummary, grade: string) {
     try {
-      await api.setGrade(agent.id, patch)
-      setAgents((cur) => cur.map((x) => (x.id === agent.id ? { ...x, ...patch } : x)))
-      toast('ok', patch.leadNego === undefined ? `${agent.username} est ${patch.grade}.` : patch.leadNego ? 'Formateur négociation activé.' : 'Formateur négociation retiré.')
+      await api.setGrade(agent.id, grade)
+      setAgents((cur) => cur.map((x) => (x.id === agent.id ? { ...x, grade } : x)))
+      toast('ok', `${agent.username} est ${grade}.`)
     } catch (err) {
       toast('error', err instanceof Error ? err.message : 'Changement impossible')
     }
@@ -109,8 +109,7 @@ export function SupervisionPage() {
                       {a.id === me?.id && <span className="muted small"> (toi)</span>}
                     </strong>
                     <small className="muted">
-                      {a.grade}
-                      {a.leadNego ? ' · Lead Négo' : ''} · {a.majA ? `vu le ${dateTimeFr(a.majA)}` : 'aucune intervention'}
+                      {a.grade} · {a.majA ? `vu le ${dateTimeFr(a.majA)}` : 'aucune intervention'}
                     </small>
                   </div>
                 </div>
@@ -132,14 +131,13 @@ export function SupervisionPage() {
               </div>
 
               <div className="row gap-12" style={{ marginTop: 12 }}>
-                <select className="input select" style={{ width: 220 }} value={a.grade} onChange={(e) => void changerGrade(a, { grade: e.target.value })}>
+                <select className="input select" style={{ width: 220 }} value={a.grade} onChange={(e) => void changerGrade(a, e.target.value)}>
                   {GRADES.map((g) => (
                     <option key={g} value={g}>
                       {g}
                     </option>
                   ))}
                 </select>
-                <Toggle checked={a.leadNego} onChange={(v) => void changerGrade(a, { leadNego: v })} label="Formateur négociation" />
               </div>
 
               <div className="agent-stats">

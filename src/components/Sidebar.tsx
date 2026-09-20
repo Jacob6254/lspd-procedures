@@ -104,7 +104,6 @@ export function Sidebar() {
       <div className="grade-chip" title="Ton grade en jeu, réglé par un admin dans Supervision">
         <Shield size={14} />
         <strong>{me?.grade ?? GRADE_DEFAUT}</strong>
-        {me?.leadNego && <em>Lead Négo</em>}
       </div>
 
       <nav className="nav">
@@ -162,7 +161,6 @@ export function Sidebar() {
           <strong>{me?.username}</strong>
           <small>
             {me?.grade}
-            {me?.leadNego ? ' · Lead Négo' : ''}
             {matricule ? ` · ${matricule}` : ''}
           </small>
         </span>
