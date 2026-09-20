@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { Check, ChevronDown, ChevronUp, Quote, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Quote, Search, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { normalize } from '../lib/format'
 
@@ -237,26 +237,53 @@ export function Empty(props: { icon: LucideIcon; title: string; text?: string; c
 /** Liste de phrases prêtes à insérer dans un champ ; on peut ensuite compléter à la main. */
 export function PhrasesRapides(props: { phrases: string[]; valeur: string; onChoisir: (v: string) => void; mode?: 'ajouter' | 'remplacer' }) {
   const [ouvert, setOuvert] = useState(false)
+  const [recherche, setRecherche] = useState('')
+
+  const mots = normalize(recherche).split(' ').filter(Boolean)
+  const trouvees = mots.length ? props.phrases.filter((p) => mots.every((m) => normalize(p).includes(m))) : props.phrases
+
   return (
     <div className="phrases">
       <button type="button" className="phrases-toggle" onClick={() => setOuvert(!ouvert)}>
         <Quote size={12} /> Phrases toutes prêtes
+        <span className="phrases-compte">{props.phrases.length}</span>
         {ouvert ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
       </button>
       {ouvert && (
-        <div className="phrases-list">
-          {props.phrases.map((p) => (
-            <button
-              type="button"
-              key={p}
-              onClick={() => {
-                const actuel = props.valeur.trim()
-                props.onChoisir(props.mode === 'remplacer' || !actuel ? p : actuel + ' ' + p)
-              }}
-            >
-              {p}
-            </button>
-          ))}
+        <div className="phrases-box">
+          <div className="phrases-search">
+            <Search size={14} />
+            <input
+              className="input"
+              value={recherche}
+              autoFocus
+              placeholder="Cherche un mot : fuite, otage, fourrière…"
+              onChange={(e) => setRecherche(e.target.value)}
+            />
+            {recherche && (
+              <button type="button" className="btn btn-icon btn-ghost" title="Effacer" onClick={() => setRecherche('')}>
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          {trouvees.length === 0 ? (
+            <p className="phrases-vide">Aucune phrase pour « {recherche} ». Écris la tienne dans le champ.</p>
+          ) : (
+            <div className="phrases-list">
+              {trouvees.map((p) => (
+                <button
+                  type="button"
+                  key={p}
+                  onClick={() => {
+                    const actuel = props.valeur.trim()
+                    props.onChoisir(props.mode === 'remplacer' || !actuel ? p : actuel + ' ' + p)
+                  }}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

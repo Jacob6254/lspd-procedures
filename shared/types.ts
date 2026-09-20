@@ -96,6 +96,20 @@ export interface Intervention {
   poursuiteFin: string
   tazer: boolean
   negociation: string
+  /** Comment le suspect a été intercepté (clé de MOYENS_INTERPELLATION). */
+  interpellationMoyen?: string
+  /** Où l'interpellation a eu lieu, si ce n'est pas le lieu de l'intervention. */
+  interpellationLieu?: string
+  /** Sommations faites avant l'interpellation. */
+  sommations?: boolean
+  /** Le suspect s'est débattu. */
+  resistance?: boolean
+  /** Il était armé au moment de l'interpellation. */
+  armeSortie?: boolean
+  /** Blessé, pris en charge par les EMS. */
+  blesse?: boolean
+  /** Fouille au corps effectuée sur place. */
+  fouilleSurPlace?: boolean
   interpellation: string
   destination: 'poste' | 'interrogatoire'
   autres: string

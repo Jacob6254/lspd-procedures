@@ -3,6 +3,7 @@ import type { StepKey } from './store'
 import { capitalize, dateFr, heureFr, joinFr, money, sentence } from './lib/format'
 import { legalityFor } from './weapons'
 import { decrireVehicule } from './data/vehicules'
+import { phraseInterpellation } from './data/interpellation'
 import { CHECKLIST_TOTAL } from './data/checklist'
 
 export const REPORT_LIMIT = 1000
@@ -95,6 +96,19 @@ export function generateReport(i: Intervention, suspect: Suspect, settings: Sett
     return plural ? 'il' : fem ? 'elle' : 'il'
   }
   const Sujet = (): string => capitalize(sujetMin())
+
+  // Les faits communs (fuite, poursuite, interpellation) concernent tout le monde :
+  // avec plusieurs suspects on écrit « les suspects » puis « ils ».
+  let presenteCommun = false
+  const sujetCommunMin = (): string => {
+    if (!plural) return sujetMin()
+    if (!presenteCommun) {
+      presenteCommun = true
+      return 'les suspects'
+    }
+    return 'ils'
+  }
+  const SujetCommun = (): string => capitalize(sujetCommunMin())
   const a = plural ? 'a' : 'a'
   const accord = (masc: string, femi: string) => (fem ? femi : masc)
 
@@ -167,16 +181,24 @@ export function generateReport(i: Intervention, suspect: Suspect, settings: Sett
       if (i.poursuiteFin.trim()) deroule.push(sentence(i.poursuiteFin))
     }
     if (i.tazer) deroule.push('Usage du tazer.')
+    if (i.sommations) deroule.push('Sommations faites avant interpellation.')
+    const moyenCourt = phraseInterpellation(i.interpellationMoyen, { fem, pluriel: plural, court: true })
+    if (moyenCourt) deroule.push(moyenCourt)
+    if (i.interpellationLieu?.trim()) deroule.push(`Interpellation ${i.interpellationLieu.trim()}.`)
+    if (i.resistance) deroule.push(plural ? 'Se sont débattus.' : accord('S’est débattu.', 'S’est débattue.'))
+    if (i.armeSortie) deroule.push(plural ? 'Armés, armes saisies sur place.' : `${accord('Armé', 'Armée')}, arme saisie sur place.`)
+    if (i.blesse) deroule.push(plural ? 'Blessés, pris en charge par les EMS.' : `${accord('Blessé', 'Blessée')}, ${accord('pris', 'prise')} en charge par les EMS.`)
+    if (i.fouilleSurPlace) deroule.push('Fouille au corps sur place.')
     if (i.interpellation.trim()) deroule.push(sentence(i.interpellation))
     deroule.push(`${plural ? 'Menottés puis conduits' : `${accord('Menotté', 'Menottée')} puis ${accord('conduit', 'conduite')}`} ${destination}.`)
     if (i.autres.trim()) deroule.push(sentence(i.autres))
   } else {
-    if (i.refusObtemperer) deroule.push(`${Sujet()} ${plural ? 'ont' : a} refusé d'obtempérer malgré nos sommations.`)
+    if (i.refusObtemperer) deroule.push(`${SujetCommun()} ${plural ? 'ont' : a} refusé d'obtempérer malgré nos sommations.`)
     if (i.fuitePied) {
       const pronom = plural ? 'les ' : "l'"
       const accordP = plural ? 'poursuivis' : accord('poursuivi', 'poursuivie')
       deroule.push(
-        `${Sujet()} ${plural ? 'ont' : a} pris la fuite à pied. ${nous ? 'Nous' : 'Je'} ${pronom}${nous ? 'avons' : 'ai'} ${accordP}${
+        `${SujetCommun()} ${plural ? 'ont' : a} pris la fuite à pied. ${nous ? 'Nous' : 'Je'} ${pronom}${nous ? 'avons' : 'ai'} ${accordP}${
           duree ? ` pendant ${duree}` : ''
         }.`
       )
@@ -190,9 +212,35 @@ export function generateReport(i: Intervention, suspect: Suspect, settings: Sett
       if (i.poursuiteFin.trim()) deroule.push(sentence(i.poursuiteFin))
     }
     if (i.tazer) deroule.push(`${nous ? 'Nous avons' : "J'ai"} fait usage du tazer afin de ${plural ? 'les' : accord('le', 'la')} neutraliser.`)
+    if (i.sommations) {
+      deroule.push(`${nous ? 'Nous avons' : "J'ai"} procédé aux sommations d'usage avant de ${plural ? 'les ' : 'l’'}interpeller.`)
+    }
+    const moyenLong = phraseInterpellation(i.interpellationMoyen, { sujet: SujetCommun(), fem, pluriel: plural, court: false })
+    if (moyenLong) deroule.push(moyenLong)
+    if (i.interpellationLieu?.trim()) deroule.push(`L'interpellation a eu lieu ${i.interpellationLieu.trim()}.`)
+    if (i.resistance) {
+      deroule.push(
+        `${SujetCommun()} ${plural ? 'se sont débattus' : `s'est ${accord('débattu', 'débattue')}`} lors de ${plural ? 'leur' : 'son'} interpellation.`
+      )
+    }
+    if (i.armeSortie) {
+      deroule.push(
+        `${SujetCommun()} ${plural ? 'étaient armés' : `était ${accord('armé', 'armée')}`} au moment de l'interpellation ; ${
+          plural ? 'leurs armes ont été saisies' : 'son arme a été saisie'
+        } sur place.`
+      )
+    }
+    if (i.blesse) {
+      deroule.push(
+        `${plural ? 'Blessés' : accord('Blessé', 'Blessée')}, ${sujetCommunMin()} ${plural ? 'ont' : 'a'} été ${
+          plural ? 'pris' : accord('pris', 'prise')
+        } en charge par les EMS avant ${plural ? 'leur' : 'son'} transport au poste.`
+      )
+    }
+    if (i.fouilleSurPlace) deroule.push(`Une fouille au corps a été effectuée sur place avant le transport.`)
     if (i.interpellation.trim()) deroule.push(sentence(i.interpellation))
     deroule.push(
-      `${Sujet()} ${plural ? 'ont été menottés puis conduits' : `a été ${accord('menotté', 'menottée')} puis ${accord('conduit', 'conduite')}`} ${destination} afin d'effectuer la procédure.`
+      `${SujetCommun()} ${plural ? 'ont été menottés puis conduits' : `a été ${accord('menotté', 'menottée')} puis ${accord('conduit', 'conduite')}`} ${destination} afin d'effectuer la procédure.`
     )
     if (i.autres.trim()) deroule.push(sentence(i.autres))
   }
@@ -268,6 +316,9 @@ export function checkSuspect(i: Intervention, s: Suspect, settings: Settings, we
   if (!i.motif.trim()) add('error', 'commun', 'Le motif de l’intervention est vide.')
   if (!i.lieu.trim()) add('warn', 'commun', 'Le lieu n’est pas précisé.')
   if (i.matricules.filter((m) => m.trim()).length === 0) add('error', 'commun', 'Aucun matricule d’agent présent.')
+  if (!i.interpellationMoyen && !i.interpellation.trim()) {
+    add('error', 'commun', 'Tu n’as pas dit comment le suspect a été intercepté.')
+  }
 
   if (!s.prenom.trim() || !s.nom.trim()) add('error', 'identite', 'Nom ou prénom du suspect manquant.')
   if (!sansScreens && s.photo.length === 0) add('warn', 'identite', 'Pas de photo du suspect.')

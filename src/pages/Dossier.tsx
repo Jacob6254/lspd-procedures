@@ -10,6 +10,7 @@ import {
   FileText,
   ListChecks,
   Fingerprint,
+  Lock,
   Gavel,
   IdCard,
   MessageSquareWarning,
@@ -29,6 +30,7 @@ import { CHECKLIST, CHECKLIST_TOTAL } from '../data/checklist'
 import { ETAPES_REDUITES, visibiliteDossier } from '@shared/grades'
 import { useAuth } from '../auth'
 import { COULEURS, TYPES_VEHICULE, decrireVehicule } from '../data/vehicules'
+import { MOYENS_INTERPELLATION } from '../data/interpellation'
 import {
   PHRASES_AUTRES,
   PHRASES_CONSTAT,
@@ -300,17 +302,81 @@ function CommunForm({ intervention: i, settings }: { intervention: Intervention;
               </div>
             )}
 
-            <Toggle checked={i.tazer} onChange={(v) => set({ tazer: v })} label="Usage du tazer" />
+          </div>
+        </Panel>
 
-            <Field label="Interpellation (facultatif)" wide>
+        <Panel title="Interpellation" icon={Lock}>
+          <div className="stack gap-12">
+            <Field label="Comment il a été intercepté" wide hint="C’est le passage le plus important du rapport.">
+              <div className="pill-group">
+                {MOYENS_INTERPELLATION.map((m) => {
+                  const actif = i.interpellationMoyen === m.key
+                  return (
+                    <button
+                      type="button"
+                      key={m.key}
+                      className={`pill ${actif ? 'on' : ''}`}
+                      onClick={() => set({ interpellationMoyen: actif ? '' : m.key })}
+                    >
+                      {m.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </Field>
+
+            <div className="sub-options-col">
+              <Toggle
+                checked={i.sommations ?? false}
+                onChange={(v) => set({ sommations: v })}
+                label="Sommations faites avant"
+                hint="« Police, ne bougez plus »"
+              />
+              <Toggle checked={i.tazer} onChange={(v) => set({ tazer: v })} label="Usage du tazer" />
+              <Toggle
+                checked={i.resistance ?? false}
+                onChange={(v) => set({ resistance: v })}
+                label="Il s’est débattu"
+                hint="Résistance au moment du menottage"
+              />
+              <Toggle
+                checked={i.armeSortie ?? false}
+                onChange={(v) => set({ armeSortie: v })}
+                label="Il était armé"
+                hint="Arme écartée puis saisie sur place"
+              />
+              <Toggle checked={i.blesse ?? false} onChange={(v) => set({ blesse: v })} label="Blessé, EMS demandés" />
+              <Toggle
+                checked={i.fouilleSurPlace ?? false}
+                onChange={(v) => set({ fouilleSurPlace: v })}
+                label="Fouille au corps sur place"
+              />
+            </div>
+
+            <Field label="Lieu de l’interpellation" wide hint="À remplir seulement s’il est différent du lieu de l’intervention.">
+              <TextInput
+                value={i.interpellationLieu ?? ''}
+                onChange={(v) => set({ interpellationLieu: v })}
+                placeholder="devant le poste de police"
+              />
+              <PhrasesRapides
+                phrases={PHRASES_LIEU}
+                valeur={i.interpellationLieu ?? ''}
+                mode="remplacer"
+                onChoisir={(v) => set({ interpellationLieu: v })}
+              />
+            </Field>
+
+            <Field label="Récit de l’interpellation" wide hint="Tout ce que les cases ci-dessus ne disent pas.">
               <TextArea
                 value={i.interpellation}
                 onChange={(v) => set({ interpellation: v })}
-                rows={2}
+                rows={3}
                 placeholder="Après nous être assurés que le conducteur n’était pas blessé, nous avons procédé à son interpellation."
               />
               <PhrasesRapides phrases={PHRASES_INTERPELLATION} valeur={i.interpellation} onChoisir={(v) => set({ interpellation: v })} />
             </Field>
+
             <Field label="Conduit ensuite" wide>
               <Segmented
                 value={i.destination}
@@ -321,11 +387,12 @@ function CommunForm({ intervention: i, settings }: { intervention: Intervention;
                 ]}
               />
             </Field>
-            <Field label="Autres éléments importants" wide>
-              <TextArea value={i.autres} onChange={(v) => set({ autres: v })} rows={2} placeholder="Tout ce qui ne rentre pas au-dessus." />
-              <PhrasesRapides phrases={PHRASES_AUTRES} valeur={i.autres} onChoisir={(v) => set({ autres: v })} />
-            </Field>
           </div>
+        </Panel>
+
+        <Panel title="Autres éléments importants" icon={ClipboardList}>
+          <TextArea value={i.autres} onChange={(v) => set({ autres: v })} rows={2} placeholder="Tout ce qui ne rentre pas au-dessus." />
+          <PhrasesRapides phrases={PHRASES_AUTRES} valeur={i.autres} onChoisir={(v) => set({ autres: v })} />
         </Panel>
       </div>
 
