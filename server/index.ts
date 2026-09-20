@@ -7,10 +7,7 @@ import { fileURLToPath } from 'node:url'
 import type { AccountInfo, AgentSummary, ConfigInscription, Db, ImageRef, Me, ModeInscription, SupervisionNote, WeaponData } from '../shared/types'
 import type { FormationScenario } from '../shared/formation'
 import { GRADES, GRADE_DEFAUT } from '../shared/grades'
-import type { NegoConfig, NegoQuestion, NegoSession, NegoTheorie } from '../shared/nego'
-import { calculerPratique, pratiqueComplete, verdictNego, versionPublique } from '../shared/nego'
 import { FORMATIONS_DEFAUT } from './formations-default'
-import { NEGO_DEFAUT } from './nego-default'
 
 const PORT = Number(process.env.PORT ?? 3000)
 const DATA_DIR = resolve(process.env.DATA_DIR ?? 'data')
@@ -39,7 +36,6 @@ interface Account {
   role: 'admin' | 'user'
   grade?: string
   leadNego?: boolean
-  negoAdmis?: boolean
   salt: string
   hash: string
   tokenVersion: number
@@ -77,8 +73,7 @@ const toMe = (a: Account): Me => ({
   username: a.username,
   role: a.role,
   grade: a.grade ?? GRADE_DEFAUT,
-  leadNego: a.leadNego ?? false,
-  negoAdmis: a.negoAdmis ?? false
+  leadNego: a.leadNego ?? false
 })
 
 function validUsername(u: unknown): u is string {
@@ -131,27 +126,6 @@ mkdirSync(formationScreensDir, { recursive: true })
 
 let formations: FormationScenario[] = existsSync(formationsFile) ? JSON.parse(readFileSync(formationsFile, 'utf8')) : FORMATIONS_DEFAUT
 if (!existsSync(formationsFile)) writeFileSync(formationsFile, JSON.stringify(formations), 'utf8')
-
-// ---------- Formation négociation ----------
-
-interface NegoStore {
-  config: NegoConfig
-  sessions: NegoSession[]
-}
-
-const negoFile = join(DATA_DIR, 'nego.json')
-let nego: NegoStore = existsSync(negoFile) ? JSON.parse(readFileSync(negoFile, 'utf8')) : { config: NEGO_DEFAUT, sessions: [] }
-if (!Array.isArray(nego.sessions)) nego.sessions = []
-if (!nego.config || !Array.isArray(nego.config.questions) || nego.config.questions.length === 0) nego.config = NEGO_DEFAUT
-if (!existsSync(negoFile)) writeFileSync(negoFile, JSON.stringify(nego), 'utf8')
-
-// Une seule écriture à la fois, comme pour les dossiers des agents.
-let negoWrite: Promise<void> = Promise.resolve()
-function saveNego(): Promise<void> {
-  const job = () => writeJsonAtomic(negoFile, nego)
-  negoWrite = negoWrite.then(job, job)
-  return negoWrite
-}
 
 // ---------- Sessions (cookie signé) ----------
 
@@ -376,15 +350,6 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
 function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   if (req.account?.role !== 'admin') {
     res.status(403).json({ error: 'Réservé à l’administrateur' })
-    return
-  }
-  next()
-}
-
-// Les pages de formation négociation sont réservées aux formateurs désignés.
-function requireNego(req: Request, res: Response, next: NextFunction): void {
-  if (req.account?.role !== 'admin' && !req.account?.leadNego) {
-    res.status(403).json({ error: 'Réservé aux formateurs négociation' })
     return
   }
   next()
@@ -857,245 +822,6 @@ api.get('/formations/images/:file', requireAuth, (req, res) => {
   res.sendFile(join(formationScreensDir, file), { headers: { 'Cache-Control': 'private, max-age=31536000, immutable' } }, (err) => {
     if (err && !res.headersSent) res.status(404).end()
   })
-})
-
-// ---------- Formation négociation ----------
-
-function corrigerTheorie(config: NegoConfig, reponses: Record<string, string[]>): NegoTheorie {
-  const details = []
-  const eliminatoiresRatees: string[] = []
-  let justes = 0
-  for (const q of config.questions) {
-    const attendus = q.options.filter((o) => o.bon).map((o) => o.id)
-    const donnes = reponses[q.id] ?? []
-    const bon = attendus.length === donnes.length && attendus.every((id) => donnes.includes(id))
-    if (bon) justes++
-    else if (q.eliminatoire) eliminatoiresRatees.push(q.texte)
-    details.push({
-      libelle: q.eliminatoire ? `${q.texte} (éliminatoire)` : q.texte,
-      bon,
-      partie: 'question' as const,
-      options: q.options.map((o) => ({ texte: o.texte, bon: o.bon, choisi: donnes.includes(o.id) }))
-    })
-  }
-  const total = config.questions.length
-  const fautes = total - justes
-  return { justes, fautes, total, eliminatoiresRatees, ok: fautes <= config.fautesMax && eliminatoiresRatees.length === 0, details }
-}
-
-/** Ce que le candidat a le droit de voir de sa propre session. */
-function sessionPourCandidat(s: NegoSession): Partial<NegoSession> {
-  const base = {
-    id: s.id,
-    candidatId: s.candidatId,
-    candidat: s.candidat,
-    grade: s.grade,
-    debut: s.debut,
-    majA: s.majA,
-    fin: s.fin,
-    reponses: s.reponses,
-    rendu: s.rendu,
-    dureeSecondes: s.dureeSecondes,
-    formateur: s.formateur,
-    publie: s.publie
-  }
-  if (!s.publie) return { ...base, theorie: null, pratique: null }
-  return { ...base, theorie: s.theorie, pratique: s.pratique }
-}
-
-function questionsValides(liste: unknown): liste is NegoQuestion[] {
-  return (
-    Array.isArray(liste) &&
-    liste.length > 0 &&
-    liste.every(
-      (q) =>
-        typeof q?.id === 'string' &&
-        typeof q?.texte === 'string' &&
-        (q.type === 'unique' || q.type === 'multiple') &&
-        Array.isArray(q.options) &&
-        q.options.length >= 2 &&
-        q.options.some((o: { bon?: unknown }) => o?.bon === true) &&
-        q.options.every((o: { id?: unknown; texte?: unknown }) => typeof o?.id === 'string' && typeof o?.texte === 'string')
-    )
-  )
-}
-
-// Le candidat reçoit les questions sans les bonnes réponses.
-api.get('/nego/examen', requireAuth, (_req, res) => {
-  res.setHeader('Cache-Control', 'no-store')
-  res.json(versionPublique(nego.config))
-})
-
-api.get('/nego/ma-session', requireAuth, (req, res) => {
-  const mienne = [...nego.sessions].reverse().find((s) => s.candidatId === req.account!.id)
-  res.setHeader('Cache-Control', 'no-store')
-  res.json(mienne ? sessionPourCandidat(mienne) : null)
-})
-
-api.post('/nego/sessions', requireAuth, async (req, res) => {
-  const acc = req.account!
-  const ouverte = nego.sessions.find((s) => s.candidatId === acc.id && !s.rendu)
-  if (ouverte) {
-    res.json(sessionPourCandidat(ouverte))
-    return
-  }
-  const now = new Date().toISOString()
-  const session: NegoSession = {
-    id: randomUUID(),
-    candidatId: acc.id,
-    candidat: acc.username,
-    grade: acc.grade ?? GRADE_DEFAUT,
-    debut: now,
-    majA: now,
-    fin: null,
-    reponses: {},
-    rendu: false,
-    dureeSecondes: 0,
-    theorie: null,
-    pratique: null,
-    formateur: null,
-    publie: false
-  }
-  nego.sessions = [...nego.sessions, session].slice(-300)
-  await saveNego()
-  res.json(sessionPourCandidat(session))
-})
-
-// Le candidat envoie ses réponses au fil de l'eau : le formateur les voit en direct.
-api.put('/nego/sessions/:id/reponses', requireAuth, async (req, res) => {
-  const s = nego.sessions.find((x) => x.id === req.params.id)
-  if (!s || s.candidatId !== req.account!.id) {
-    res.status(404).json({ error: 'Session introuvable' })
-    return
-  }
-  if (s.rendu) {
-    res.status(409).json({ error: 'Copie déjà rendue' })
-    return
-  }
-  const rep = req.body?.reponses
-  if (!rep || typeof rep !== 'object' || Array.isArray(rep)) {
-    res.status(400).json({ error: 'Réponses invalides' })
-    return
-  }
-  const propre: Record<string, string[]> = {}
-  for (const q of nego.config.questions) {
-    const choix = (rep as Record<string, unknown>)[q.id]
-    if (!Array.isArray(choix)) continue
-    propre[q.id] = choix.filter((c): c is string => typeof c === 'string' && q.options.some((o) => o.id === c)).slice(0, q.options.length)
-  }
-  s.reponses = propre
-  s.majA = new Date().toISOString()
-  await saveNego()
-  res.json({ ok: true })
-})
-
-api.post('/nego/sessions/:id/rendre', requireAuth, async (req, res) => {
-  const s = nego.sessions.find((x) => x.id === req.params.id)
-  if (!s || s.candidatId !== req.account!.id) {
-    res.status(404).json({ error: 'Session introuvable' })
-    return
-  }
-  if (!s.rendu) {
-    s.rendu = true
-    s.fin = new Date().toISOString()
-    s.majA = s.fin
-    s.dureeSecondes = Math.max(0, Math.round((Date.parse(s.fin) - Date.parse(s.debut)) / 1000))
-    s.theorie = corrigerTheorie(nego.config, s.reponses)
-    await saveNego()
-  }
-  res.json(sessionPourCandidat(s))
-})
-
-// ---------- Côté formateur ----------
-
-api.get('/nego/config', requireAuth, requireNego, (_req, res) => {
-  res.setHeader('Cache-Control', 'no-store')
-  res.json(nego.config)
-})
-
-api.put('/nego/config', requireAuth, requireAdmin, async (req, res) => {
-  const c = req.body as NegoConfig
-  if (!c || !questionsValides(c.questions)) {
-    res.status(400).json({ error: 'Questionnaire invalide' })
-    return
-  }
-  nego.config = {
-    questions: c.questions,
-    texteFormateur: typeof c.texteFormateur === 'string' ? c.texteFormateur : nego.config.texteFormateur,
-    consignes: typeof c.consignes === 'string' ? c.consignes : nego.config.consignes,
-    dureeMinutes: Number.isFinite(c.dureeMinutes) ? Math.min(120, Math.max(1, Math.round(c.dureeMinutes))) : nego.config.dureeMinutes,
-    fautesMax: Number.isFinite(c.fautesMax) ? Math.min(50, Math.max(0, Math.round(c.fautesMax))) : nego.config.fautesMax
-  }
-  await saveNego()
-  res.json(nego.config)
-})
-
-api.get('/nego/sessions', requireAuth, requireNego, (_req, res) => {
-  res.setHeader('Cache-Control', 'no-store')
-  res.json([...nego.sessions].reverse())
-})
-
-api.get('/nego/sessions/:id', requireAuth, requireNego, (req, res) => {
-  const s = nego.sessions.find((x) => x.id === req.params.id)
-  if (!s) {
-    res.status(404).json({ error: 'Session introuvable' })
-    return
-  }
-  res.setHeader('Cache-Control', 'no-store')
-  res.json(s)
-})
-
-api.put('/nego/sessions/:id/pratique', requireAuth, requireNego, async (req, res) => {
-  const s = nego.sessions.find((x) => x.id === req.params.id)
-  if (!s) {
-    res.status(404).json({ error: 'Session introuvable' })
-    return
-  }
-  const brut = req.body?.notes
-  const notes: Record<string, number> = {}
-  if (brut && typeof brut === 'object') {
-    for (const [k, v] of Object.entries(brut as Record<string, unknown>)) {
-      if (typeof v === 'number' && v >= 0 && v <= 2) notes[k] = Math.round(v)
-    }
-  }
-  const commentaire = typeof req.body?.commentaire === 'string' ? req.body.commentaire.slice(0, 2000) : ''
-  s.pratique = calculerPratique(notes, commentaire)
-  s.formateur = req.account!.username
-  await saveNego()
-  res.json(s)
-})
-
-// Le candidat ne voit ses résultats qu'ici, une fois la pratique terminée.
-api.post('/nego/sessions/:id/publier', requireAuth, requireNego, async (req, res) => {
-  const s = nego.sessions.find((x) => x.id === req.params.id)
-  if (!s) {
-    res.status(404).json({ error: 'Session introuvable' })
-    return
-  }
-  if (!s.rendu) {
-    res.status(409).json({ error: 'Le candidat n’a pas encore rendu sa copie' })
-    return
-  }
-  if (s.theorie?.ok && !pratiqueComplete(s.pratique)) {
-    res.status(409).json({ error: 'Remplis d’abord toute la grille de pratique' })
-    return
-  }
-  s.publie = true
-  s.formateur = s.formateur ?? req.account!.username
-  const admis = verdictNego(s) === 'admis'
-  const acc = accounts.find((a) => a.id === s.candidatId)
-  if (acc && admis && !acc.negoAdmis) {
-    acc.negoAdmis = true
-    await saveAccounts()
-  }
-  await saveNego()
-  res.json(s)
-})
-
-api.delete('/nego/sessions/:id', requireAuth, requireAdmin, async (req, res) => {
-  nego.sessions = nego.sessions.filter((x) => x.id !== req.params.id)
-  await saveNego()
-  res.json({ ok: true })
 })
 
 api.get('/weapons', requireAuth, async (req, res) => {

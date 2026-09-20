@@ -1,6 +1,5 @@
 import type { AccountInfo, AgentSummary, ConfigInscription, Db, ImageRef, Me, ModeInscription, SupervisionNote, WeaponData } from '@shared/types'
 import type { FormationScenario } from '@shared/formation'
-import type { NegoConfig, NegoExamen, NegoSession } from '@shared/nego'
 
 export class ApiError extends Error {
   constructor(
@@ -119,22 +118,6 @@ export const api = {
   getFormations: () => request<FormationScenario[]>('GET', '/formations'),
   saveFormations: (scenarios: FormationScenario[]) => request<FormationScenario[]>('PUT', '/formations', scenarios),
   uploadFormationImage: (data: Blob) => request<ImageRef>('POST', '/formations/images', undefined, data),
-
-  // Formation négociation
-  negoExamen: () => request<NegoExamen>('GET', '/nego/examen'),
-  negoMaSession: () => request<NegoSession | null>('GET', '/nego/ma-session'),
-  negoDemarrer: () => request<NegoSession>('POST', '/nego/sessions', {}),
-  negoReponses: (id: string, reponses: Record<string, string[]>) =>
-    request<{ ok: true }>('PUT', `/nego/sessions/${id}/reponses`, { reponses }),
-  negoRendre: (id: string) => request<NegoSession>('POST', `/nego/sessions/${id}/rendre`, {}),
-  negoConfig: () => request<NegoConfig>('GET', '/nego/config'),
-  negoSetConfig: (config: NegoConfig) => request<NegoConfig>('PUT', '/nego/config', config),
-  negoSessions: () => request<NegoSession[]>('GET', '/nego/sessions'),
-  negoSession: (id: string) => request<NegoSession>('GET', `/nego/sessions/${id}`),
-  negoPratique: (id: string, notes: Record<string, number>, commentaire: string) =>
-    request<NegoSession>('PUT', `/nego/sessions/${id}/pratique`, { notes, commentaire }),
-  negoPublier: (id: string) => request<NegoSession>('POST', `/nego/sessions/${id}/publier`, {}),
-  negoSupprimer: (id: string) => request<{ ok: true }>('DELETE', `/nego/sessions/${id}`),
 
   notes: () => request<SupervisionNote[]>('GET', '/notes'),
   markNotesRead: (ids: string[]) => request<{ ok: true }>('POST', '/notes/lu', { ids }),

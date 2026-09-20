@@ -133,8 +133,6 @@ export interface Me {
   grade: string
   /** Formateur négociation, désigné par un admin. */
   leadNego: boolean
-  /** A réussi la formation négociation. */
-  negoAdmis: boolean
 }
 
 export interface AccountInfo extends Me {
