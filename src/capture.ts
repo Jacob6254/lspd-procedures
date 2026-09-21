@@ -1,11 +1,10 @@
 import { useEffect } from 'react'
-import { create } from 'zustand'
 import { useStore } from './store'
 import { api } from './api'
 
 let audio: AudioContext | null = null
 
-/** Petit « clic » d'appareil photo quand un screen est pris. */
+/** Petit « clic » d'appareil photo quand un screen est ajouté. */
 export function playShutter(): void {
   audio ??= new AudioContext()
   const ctx = audio
@@ -47,81 +46,6 @@ export async function saveFiles(files: File[]): Promise<number> {
   return count
 }
 
-interface ShareState {
-  stream: MediaStream | null
-  video: HTMLVideoElement | null
-  countdown: number
-  start(): Promise<void>
-  stop(): void
-  grab(delaySeconds?: number): Promise<void>
-}
-
-/** Partage d'écran : on garde le flux ouvert et on prend une image quand on clique sur « Capturer ». */
-export const useScreenShare = create<ShareState>((set, get) => ({
-  stream: null,
-  video: null,
-  countdown: 0,
-
-  async start() {
-    const { toast } = useStore.getState()
-    if (!navigator.mediaDevices?.getDisplayMedia) {
-      toast('error', 'Ton navigateur ne permet pas le partage d’écran (utilise Chrome ou Edge, sur un site en https).')
-      return
-    }
-    try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 5 }, audio: false })
-      const video = document.createElement('video')
-      video.muted = true
-      video.playsInline = true
-      video.srcObject = stream
-      await video.play()
-      stream.getVideoTracks()[0]?.addEventListener('ended', () => get().stop())
-      set({ stream, video })
-      toast('ok', 'Écran partagé : clique sur « Capturer » pour prendre un screen.')
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'NotAllowedError') return
-      toast('error', 'Partage d’écran impossible.')
-    }
-  },
-
-  stop() {
-    get().stream?.getTracks().forEach((t) => t.stop())
-    set({ stream: null, video: null, countdown: 0 })
-  },
-
-  async grab(delaySeconds = 0) {
-    for (let s = delaySeconds; s > 0; s--) {
-      set({ countdown: s })
-      await new Promise((r) => setTimeout(r, 1000))
-    }
-    set({ countdown: 0 })
-    const { video } = get()
-    const st = useStore.getState()
-    if (!video || !video.videoWidth) {
-      st.toast('error', 'Aucun écran partagé.')
-      return
-    }
-    const canvas = document.createElement('canvas')
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-    canvas.getContext('2d')!.drawImage(video, 0, 0)
-    const blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, 'image/png'))
-    if (!blob) {
-      st.toast('error', 'Capture impossible.')
-      return
-    }
-    try {
-      const img = await api.saveImage(blob)
-      const cur = useStore.getState()
-      const where = cur.addImage(cur.captureTarget, img)
-      playShutter()
-      cur.toast('ok', `Screen ajouté → ${where}`)
-    } catch (err) {
-      st.toast('error', err instanceof Error ? err.message : 'Envoi du screen impossible')
-    }
-  }
-}))
-
 /** Ctrl+V n'importe où dans la page et glisser-déposer. */
 export function useCaptureBridge(): void {
   useEffect(() => {
@@ -143,7 +67,6 @@ export function useCaptureBridge(): void {
       window.removeEventListener('paste', onPaste)
       window.removeEventListener('dragover', block)
       window.removeEventListener('drop', block)
-      useScreenShare.getState().stop()
     }
   }, [])
 }

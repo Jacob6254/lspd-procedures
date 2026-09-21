@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Camera, Copy, KeyRound, Link2, LogOut, RefreshCw, Settings, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react'
+import { Copy, FileText, IdCard, KeyRound, Link2, LogOut, RefreshCw, Settings, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react'
 import type { AccountInfo, ConfigInscription } from '@shared/types'
 import { useStore } from '../store'
 import { useAuth } from '../auth'
 import { api } from '../api'
-import { playShutter } from '../capture'
 import { Badge, ChipsInput, ConfirmButton, Field, PageHeader, Panel, Segmented, TextInput } from '../components/ui'
 import { dateTimeFr } from '../lib/format'
 
@@ -273,7 +272,7 @@ export function ReglagesPage() {
 
   return (
     <div className="page">
-      <PageHeader icon={Settings} title="Réglages" subtitle="Ton profil d’agent, ton compte et les screens" />
+      <PageHeader icon={Settings} title="Réglages" subtitle="Ton profil d’agent et ton compte" />
       <div className="settings-grid">
         <Panel title="Agent" icon={ShieldCheck}>
           <div className="form-grid">
@@ -286,29 +285,64 @@ export function ReglagesPage() {
           </div>
         </Panel>
 
+        <Panel title="Identité du rédacteur" icon={IdCard} className="panel-wide">
+          <p className="muted small" style={{ marginTop: 0 }}>
+            Repris tel quel en en-tête du rapport de négociation. Tu peux le corriger avant de générer.
+          </p>
+          <div className="form-grid">
+            <Field label="Sexe">
+              <Segmented
+                value={settings.sexe ?? 'H'}
+                onChange={(v: 'H' | 'F') => update({ sexe: v })}
+                options={[
+                  { value: 'H' as const, label: 'H' },
+                  { value: 'F' as const, label: 'F' }
+                ]}
+              />
+            </Field>
+            <Field label="Nom">
+              <TextInput value={settings.nom ?? ''} onChange={(v) => update({ nom: v })} placeholder="DUPONT" />
+            </Field>
+            <Field label="Prénom">
+              <TextInput value={settings.prenom ?? ''} onChange={(v) => update({ prenom: v })} placeholder="Lucas" />
+            </Field>
+            <Field label="Grade">
+              <TextInput value={settings.grade ?? ''} onChange={(v) => update({ grade: v })} placeholder="Officer" />
+            </Field>
+            <Field label="Spécialisation">
+              <TextInput value={settings.specialisation ?? ''} onChange={(v) => update({ specialisation: v })} placeholder="Négociateur" />
+            </Field>
+          </div>
+        </Panel>
+
+        <Panel title="Cases d’en-tête du document officiel" icon={FileText} className="panel-wide">
+          <p className="muted small" style={{ marginTop: 0 }}>
+            L’année et le n° de dossier se remplissent tout seuls. Le n° de dossier avance d’un cran à chaque rapport généré.
+          </p>
+          <div className="form-grid">
+            <Field label="Unit code">
+              <TextInput value={settings.unitCode ?? ''} onChange={(v) => update({ unitCode: v })} placeholder="20-S" />
+            </Field>
+            <Field label="Nmr justice file">
+              <TextInput value={settings.nmrJustice ?? ''} onChange={(v) => update({ nmrJustice: v })} placeholder="1293" />
+            </Field>
+            <Field label="Nmr room">
+              <TextInput value={settings.nmrRoom ?? ''} onChange={(v) => update({ nmrRoom: v })} placeholder="0001" />
+            </Field>
+            <Field label="Prochain n° de dossier">
+              <TextInput
+                value={String(settings.prochainCase ?? 1)}
+                onChange={(v) => update({ prochainCase: Math.max(1, Number(v.replace(/D/g, '')) || 1) })}
+                type="number"
+              />
+            </Field>
+          </div>
+        </Panel>
+
         <Panel title="Collègues fréquents" icon={Users}>
           <Field label="Matricules proposés quand tu ajoutes les agents présents" wide>
             <ChipsInput values={settings.collegues} onChange={(v) => update({ collegues: v })} prefix="#" placeholder="Ex : 388 puis Entrée" />
           </Field>
-        </Panel>
-
-        <Panel title="Prendre les screens" icon={Camera}>
-          <ol className="howto">
-            <li>
-              <strong>Coller :</strong> prends ton screen comme d’habitude (Win + Maj + S, Impr. écran…) puis fais <kbd>Ctrl</kbd> + <kbd>V</kbd> sur le
-              site. Il arrive dans la zone visée.
-            </li>
-            <li>
-              <strong>Glisser :</strong> glisse un fichier image sur une zone de screens.
-            </li>
-            <li>
-              <strong>Partager l’écran du jeu :</strong> bouton en bas à gauche, choisis la <em>fenêtre FiveM</em>. Ensuite, « Capturer » prend un screen en un
-              clic, sans quitter le site (le minuteur 3 s laisse le temps de revenir en jeu).
-            </li>
-          </ol>
-          <button type="button" className="btn" onClick={playShutter}>
-            Tester le son de capture
-          </button>
         </Panel>
 
         <MonCompte />

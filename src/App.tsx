@@ -18,7 +18,9 @@ import { FormationAdminPage } from './pages/FormationAdmin'
 import { NotesBanner } from './components/NotesBanner'
 import { ControlBanner } from './components/ControlBanner'
 import { hasUnsavedChanges } from './store'
-import { ScreensPage } from './pages/Screens'
+import { NegociationsPage } from './pages/Negociations'
+import { NegociationPage } from './pages/Negociation'
+import { NegoGuidePage } from './pages/NegoGuide'
 import { ReglagesPage } from './pages/Reglages'
 import { LoginPage } from './pages/Login'
 
@@ -90,7 +92,9 @@ function Workspace() {
         {route.page === 'supervision' && <SupervisionPage />}
         {route.page === 'formation' && <FormationPage />}
         {route.page === 'formation-admin' && <FormationAdminPage />}
-        {route.page === 'screens' && <ScreensPage />}
+        {route.page === 'negociations' && <NegociationsPage />}
+        {route.page === 'negociation' && <NegociationPage key={route.id} id={route.id} />}
+        {route.page === 'nego-guide' && <NegoGuidePage />}
         {route.page === 'reglages' && <ReglagesPage />}
       </main>
     </div>

@@ -1,10 +1,7 @@
-import { useEffect, useRef } from 'react'
-import { Camera, Crosshair, Eye, FileText, GraduationCap, Home, Images, LogOut, MonitorUp, Plus, Radio, Settings, Shield, Timer, X } from 'lucide-react'
+import { BookOpen, Crosshair, Eye, FileText, GraduationCap, Handshake, Home, LogOut, Plus, Radio, Settings } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { type Route, SLOT_LABELS, interventionTitle, suspectName, useSaveStatus, useStore } from '../store'
-import { useScreenShare } from '../capture'
+import { type Route, interventionTitle, negociationTitre, suspectName, useSaveStatus, useStore } from '../store'
 import { useAuth } from '../auth'
-import { GRADE_DEFAUT } from '@shared/grades'
 
 export function Badge3D() {
   return (
@@ -31,60 +28,16 @@ function NavItem(props: { icon: LucideIcon; label: string; active: boolean; onCl
   )
 }
 
-function SharePanel() {
-  const { stream, countdown, start, stop, grab } = useScreenShare()
-  const target = useStore((s) => s.captureTarget)
-  const destination = useStore((s) => {
-    const t = s.captureTarget
-    const i = t && s.db.interventions.find((x) => x.id === t.interventionId)
-    if (!t || !i) return 'Screens à trier'
-    const suspect = i.suspects.find((x) => x.id === t.suspectId)
-    return suspect ? `${SLOT_LABELS[t.slot]} · ${suspectName(suspect)}` : `${SLOT_LABELS[t.slot]} · ${interventionTitle(i)}`
-  })
-  const preview = useRef<HTMLVideoElement>(null)
-
-  useEffect(() => {
-    if (preview.current) preview.current.srcObject = stream
-  }, [stream])
-
-  return (
-    <div className="share">
-      {stream ? (
-        <>
-          <video ref={preview} className="share-preview" autoPlay muted playsInline />
-          <div className="share-actions">
-            <button type="button" className="btn btn-primary" disabled={countdown > 0} onClick={() => void grab()}>
-              <Camera size={15} /> {countdown > 0 ? `${countdown}…` : 'Capturer'}
-            </button>
-            <button type="button" className="btn btn-icon" title="Capturer dans 3 secondes" disabled={countdown > 0} onClick={() => void grab(3)}>
-              <Timer size={15} />
-            </button>
-            <button type="button" className="btn btn-icon" title="Arrêter le partage" onClick={stop}>
-              <X size={15} />
-            </button>
-          </div>
-        </>
-      ) : (
-        <button type="button" className="btn share-start" onClick={() => void start()}>
-          <MonitorUp size={15} /> Partager l’écran du jeu
-        </button>
-      )}
-      <div className="share-dest">
-        Les screens vont dans
-        <strong className={target ? 'c-blue' : ''}>{destination}</strong>
-      </div>
-    </div>
-  )
-}
-
 export function Sidebar() {
   const route = useStore((s) => s.route)
   const go = useStore((s) => s.go)
   const openDossier = useStore((s) => s.openDossier)
   const createIntervention = useStore((s) => s.createIntervention)
+  const createNegociation = useStore((s) => s.createNegociation)
   const interventions = useStore((s) => s.db.interventions)
-  const inbox = useStore((s) => s.db.inbox.length)
   const matricule = useStore((s) => s.db.settings.matricule)
+  const negociations = useStore((s) => s.db.negociations)
+  const negosEnCours = (negociations ?? []).filter((n) => n.statut === 'en_cours').slice(0, 4)
   const save = useSaveStatus((s) => s.state)
   const me = useAuth((s) => s.me)
   const logout = useAuth((s) => s.logout)
@@ -99,11 +52,6 @@ export function Sidebar() {
           <strong>L.S.P.D Procédures</strong>
           <span>OUTIL DE PROCÉDURE</span>
         </div>
-      </div>
-
-      <div className="grade-chip" title="Ton grade en jeu, réglé par un admin dans Supervision">
-        <Shield size={14} />
-        <strong>{me?.grade ?? GRADE_DEFAUT}</strong>
       </div>
 
       <nav className="nav">
@@ -131,9 +79,29 @@ export function Sidebar() {
 
         <div className="nav-section">Registre</div>
         <NavItem icon={FileText} label="Historique" active={is('historique')} onClick={() => go({ page: 'historique' })} />
-        <NavItem icon={Images} label="Screens à trier" active={is('screens')} count={inbox} onClick={() => go({ page: 'screens' })} />
         <NavItem icon={Crosshair} label="Répertoire armes" active={is('armes')} onClick={() => go({ page: 'armes' })} />
         <NavItem icon={Radio} label="Code Radio" active={is('radio')} onClick={() => go({ page: 'radio' })} />
+
+        <div className="nav-section">Négociation</div>
+        <button type="button" className="nav-new" onClick={createNegociation}>
+          <Plus size={17} /> Nouvelle négociation
+        </button>
+        {negosEnCours.map((n) => (
+          <button
+            type="button"
+            key={n.id}
+            className={`nav-dossier ${route.page === 'negociation' && route.id === n.id ? 'active' : ''}`}
+            onClick={() => go({ page: 'negociation', id: n.id })}
+          >
+            <span className="dot dot-amber" />
+            <span className="nav-dossier-text">
+              <span>{negociationTitre(n)}</span>
+              <small>{n.otages.length} otage(s)</small>
+            </span>
+          </button>
+        ))}
+        <NavItem icon={Handshake} label="Mes négociations" active={is('negociations')} onClick={() => go({ page: 'negociations' })} />
+        <NavItem icon={BookOpen} label="Comment négocier" active={is('nego-guide')} onClick={() => go({ page: 'nego-guide' })} />
 
         <div className="nav-section">Formation</div>
         <NavItem icon={GraduationCap} label="Formation casier rookie" active={is('formation')} onClick={() => go({ page: 'formation' })} />
@@ -150,8 +118,6 @@ export function Sidebar() {
         <NavItem icon={Settings} label="Réglages" active={is('reglages')} onClick={() => go({ page: 'reglages' })} />
       </nav>
 
-      <SharePanel />
-
       <div className="sidebar-foot">
         <span
           className={`dot ${save === 'error' ? 'dot-red' : save === 'saving' ? 'dot-amber' : 'dot-green'}`}
@@ -159,10 +125,7 @@ export function Sidebar() {
         />
         <span className="sidebar-foot-text">
           <strong>{me?.username}</strong>
-          <small>
-            {me?.grade}
-            {matricule ? ` · ${matricule}` : ''}
-          </small>
+          <small>{matricule ? `Matricule ${matricule} · ${me?.role === 'admin' ? 'Admin' : 'LSPD'}` : 'Matricule à remplir'}</small>
         </span>
         <button type="button" className="btn btn-icon btn-ghost" title="Se déconnecter" onClick={() => void logout()}>
           <LogOut size={16} />

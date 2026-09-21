@@ -8,7 +8,6 @@ import { useControl } from '../control'
 import { useStore } from '../store'
 import { dateTimeFr } from '../lib/format'
 import { Badge, Empty, PageHeader, Panel, TextArea } from '../components/ui'
-import { GRADES } from '@shared/grades'
 import { Correction } from '../components/Correction'
 
 export function SupervisionPage() {
@@ -65,16 +64,6 @@ export function SupervisionPage() {
   }
 
   // On garde sa propre ligne : les essais de formation de l’admin doivent se voir aussi.
-  async function changerGrade(agent: AgentSummary, grade: string) {
-    try {
-      await api.setGrade(agent.id, grade)
-      setAgents((cur) => cur.map((x) => (x.id === agent.id ? { ...x, grade } : x)))
-      toast('ok', `${agent.username} est ${grade}.`)
-    } catch (err) {
-      toast('error', err instanceof Error ? err.message : 'Changement impossible')
-    }
-  }
-
   const autres = [...agents].sort((a, b) => (a.id === me?.id ? -1 : b.id === me?.id ? 1 : 0))
 
   return (
@@ -109,7 +98,7 @@ export function SupervisionPage() {
                       {a.id === me?.id && <span className="muted small"> (toi)</span>}
                     </strong>
                     <small className="muted">
-                      {a.grade} · {a.majA ? `vu le ${dateTimeFr(a.majA)}` : 'aucune intervention'}
+                      {a.role === 'admin' ? 'Admin' : 'LSPD'} · {a.majA ? `vu le ${dateTimeFr(a.majA)}` : 'aucune intervention'}
                     </small>
                   </div>
                 </div>
@@ -128,16 +117,6 @@ export function SupervisionPage() {
                     </button>
                   )}
                 </div>
-              </div>
-
-              <div className="row gap-12" style={{ marginTop: 12 }}>
-                <select className="input select" style={{ width: 220 }} value={a.grade} onChange={(e) => void changerGrade(a, e.target.value)}>
-                  {GRADES.map((g) => (
-                    <option key={g} value={g}>
-                      {g}
-                    </option>
-                  ))}
-                </select>
               </div>
 
               <div className="agent-stats">

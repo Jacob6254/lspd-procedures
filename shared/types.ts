@@ -84,6 +84,8 @@ export interface Intervention {
   lieu: string
   matricules: string[]
   constat: string
+  /** Ce qu'il y avait sur place, coché en un clic. */
+  sceneFaits?: string[]
   refusObtemperer: boolean
   fuitePied: boolean
   fuitePiedDuree: string
@@ -111,6 +113,11 @@ export interface Intervention {
   /** Fouille au corps effectuée sur place. */
   fouilleSurPlace?: boolean
   interpellation: string
+  /** Un agent a fait usage de son arme. */
+  armeUtilisee?: boolean
+  /** Pourquoi : sommation, riposte, légitime défense… */
+  armeMotifs?: string[]
+  armeDetail?: string
   destination: 'poste' | 'interrogatoire'
   autres: string
   sceneScreens: ImageRef[]
@@ -123,9 +130,22 @@ export interface Settings {
   collegues: string[]
   /** Rapport en version courte, pour tenir dans les 1000 caractères du MDT. */
   rapportCourt?: boolean
+  /** Identité du rédacteur, reprise en en-tête du document officiel. */
+  sexe?: 'H' | 'F'
+  nom?: string
+  prenom?: string
+  grade?: string
+  specialisation?: string
+  /** Cases d'en-tête du document officiel. */
+  unitCode?: string
+  nmrJustice?: string
+  nmrRoom?: string
+  /** Numéro du prochain dossier officiel, incrémenté à chaque rapport généré. */
+  prochainCase?: number
 }
 
 import type { FormationResultat } from './formation'
+import type { Negociation } from './negociation'
 
 export interface Db {
   version: 1
@@ -133,7 +153,9 @@ export interface Db {
   rev?: number
   settings: Settings
   interventions: Intervention[]
-  inbox: ImageRef[]
+  negociations?: Negociation[]
+  /** Ancienne boîte de screens à trier, gardée pour les données déjà enregistrées. */
+  inbox?: ImageRef[]
   learned: { drogues: string[]; autres: string[]; accusations: string[] }
   /** Résultats des exercices de formation. */
   formations?: FormationResultat[]
@@ -143,8 +165,6 @@ export interface Me {
   id: string
   username: string
   role: 'admin' | 'user'
-  /** Grade en jeu (Rookie, Officier 1…), choisi par un admin. */
-  grade: string
 }
 
 export interface AccountInfo extends Me {

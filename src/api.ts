@@ -87,7 +87,6 @@ export const api = {
   createAccount: (username: string, password: string, role: 'admin' | 'user') =>
     request<AccountInfo>('POST', '/accounts', { username, password, role }),
   resetPassword: (id: string, password: string) => request<{ ok: true }>('PUT', `/accounts/${id}/password`, { password }),
-  setGrade: (id: string, grade: string) => request<Me>('PUT', `/accounts/${id}/grade`, { grade }),
   deleteAccount: (id: string) => request<{ ok: true }>('DELETE', `/accounts/${id}`),
 
   loadDb: () => request<Db | null>('GET', `${base()}/db`),

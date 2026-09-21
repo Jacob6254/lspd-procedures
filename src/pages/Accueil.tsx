@@ -1,5 +1,5 @@
-import { Clock3, Crosshair, FileText, Home, Images, Plus, UserRound } from 'lucide-react'
-import { interventionImages, interventionTitle, suspectName, useStore } from '../store'
+import { Clock3, Crosshair, FileText, Handshake, Home, Plus, UserRound } from 'lucide-react'
+import { interventionTitle, suspectName, useStore } from '../store'
 import { Badge3D } from '../components/Sidebar'
 import { Empty, PageHeader } from '../components/ui'
 import { dateFr, heureFr } from '../lib/format'
@@ -7,7 +7,6 @@ import type { Intervention } from '@shared/types'
 
 export function InterventionRow({ i }: { i: Intervention }) {
   const openDossier = useStore((s) => s.openDossier)
-  const screens = interventionImages(i).length
   const saisies = i.suspects.reduce((n, s) => n + s.saisies.length, 0)
   return (
     <div className="row-card">
@@ -20,7 +19,7 @@ export function InterventionRow({ i }: { i: Intervention }) {
         </strong>
         <small>
           {dateFr(i.date)} à {heureFr(i.heure)} · {i.suspects.length} suspect{i.suspects.length > 1 ? 's' : ''} · {saisies} saisie
-          {saisies > 1 ? 's' : ''} · {screens} screen{screens > 1 ? 's' : ''}
+          {saisies > 1 ? 's' : ''} · 
         </small>
       </div>
       <span className={`status ${i.statut === 'en_cours' ? 'status-amber' : 'status-green'}`}>{i.statut === 'en_cours' ? 'En cours' : 'Terminée'}</span>
@@ -38,7 +37,7 @@ export function AccueilPage() {
   const enCours = db.interventions.filter((i) => i.statut === 'en_cours')
   const terminees = db.interventions.filter((i) => i.statut === 'terminee')
   const suspects = db.interventions.reduce((n, i) => n + i.suspects.length, 0)
-  const screens = db.interventions.reduce((n, i) => n + interventionImages(i).length, 0) + db.inbox.length
+  const negociations = db.negociations ?? []
   const armes = db.interventions.reduce(
     (n, i) => n + i.suspects.reduce((m, s) => m + s.saisies.filter((x) => x.type === 'arme').reduce((q, x) => q + (x.quantite ?? 0), 0), 0),
     0
@@ -55,8 +54,8 @@ export function AccueilPage() {
             {enCours.length} <span>intervention{enCours.length > 1 ? 's' : ''} en cours</span>
           </div>
           <p>
-            Commence le dossier pendant le trajet vers le poste : faits, suspects, fouille et screens. L’appli écrit le rapport et vérifie qu’il ne
-            manque rien.
+            Commence le dossier pendant le trajet vers le poste : faits, suspects, fouille. L’appli écrit le rapport et vérifie qu’il ne manque
+            rien.
           </p>
           <button type="button" className="btn btn-primary btn-lg" onClick={createIntervention}>
             <Plus size={17} /> Nouvelle intervention
@@ -84,10 +83,10 @@ export function AccueilPage() {
         </div>
         <div className="stat">
           <span className="eyebrow">
-            <Images size={14} /> Screens
+            <Handshake size={14} /> Négociations
           </span>
-          <strong>{screens}</strong>
-          <small>{db.inbox.length} à trier</small>
+          <strong>{negociations.length}</strong>
+          <small>{negociations.filter((n) => n.statut === 'en_cours').length} en cours</small>
         </div>
         <div className="stat">
           <span className="eyebrow">

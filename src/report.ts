@@ -161,6 +161,8 @@ export function generateReport(i: Intervention, suspect: Suspect, settings: Sett
     }
   }
   if (i.constat.trim()) intro.push(sentence(i.constat))
+  const faitsScene = (i.sceneFaits ?? []).map(lowerFirst)
+  if (faitsScene.length) intro.push(court ? `Sur place : ${joinFr(faitsScene)}.` : `Sur place : ${joinFr(faitsScene)}.`)
   if (i.negociation.trim()) intro.push(sentence(i.negociation))
 
   const deroule: string[] = []
@@ -189,6 +191,10 @@ export function generateReport(i: Intervention, suspect: Suspect, settings: Sett
     if (i.armeSortie) deroule.push(plural ? 'Armés, armes saisies sur place.' : `${accord('Armé', 'Armée')}, arme saisie sur place.`)
     if (i.blesse) deroule.push(plural ? 'Blessés, pris en charge par les EMS.' : `${accord('Blessé', 'Blessée')}, ${accord('pris', 'prise')} en charge par les EMS.`)
     if (i.fouilleSurPlace) deroule.push('Fouille au corps sur place.')
+    if (i.armeUtilisee) {
+      deroule.push(`Usage de l'arme${(i.armeMotifs ?? []).length ? ` : ${joinFr((i.armeMotifs ?? []).map(lowerFirst))}` : ''}.`)
+      if (i.armeDetail?.trim()) deroule.push(sentence(i.armeDetail))
+    }
     if (i.interpellation.trim()) deroule.push(sentence(i.interpellation))
     deroule.push(`${plural ? 'Menottés puis conduits' : `${accord('Menotté', 'Menottée')} puis ${accord('conduit', 'conduite')}`} ${destination}.`)
     if (i.autres.trim()) deroule.push(sentence(i.autres))
@@ -238,6 +244,13 @@ export function generateReport(i: Intervention, suspect: Suspect, settings: Sett
       )
     }
     if (i.fouilleSurPlace) deroule.push(`Une fouille au corps a été effectuée sur place avant le transport.`)
+    if (i.armeUtilisee) {
+      const motifs = (i.armeMotifs ?? []).map(lowerFirst)
+      deroule.push(
+        `${nous ? 'Un agent a' : "J'ai"} fait usage de son arme${motifs.length ? ` : ${joinFr(motifs)}` : ''}.`
+      )
+      if (i.armeDetail?.trim()) deroule.push(sentence(i.armeDetail))
+    }
     if (i.interpellation.trim()) deroule.push(sentence(i.interpellation))
     deroule.push(
       `${SujetCommun()} ${plural ? 'ont été menottés puis conduits' : `a été ${accord('menotté', 'menottée')} puis ${accord('conduit', 'conduite')}`} ${destination} afin d'effectuer la procédure.`
@@ -308,7 +321,7 @@ export interface Check {
 }
 
 /** Ce qui manque pour éviter un vice de procédure. Rien n'est bloquant. */
-export function checkSuspect(i: Intervention, s: Suspect, settings: Settings, weapons: Map<string, Weapon>, sansScreens = false): Check[] {
+export function checkSuspect(i: Intervention, s: Suspect, settings: Settings, weapons: Map<string, Weapon>): Check[] {
   const out: Check[] = []
   const add = (level: Check['level'], step: Check['step'], text: string) => out.push({ level, text, step })
 
@@ -321,14 +334,13 @@ export function checkSuspect(i: Intervention, s: Suspect, settings: Settings, we
   }
 
   if (!s.prenom.trim() || !s.nom.trim()) add('error', 'identite', 'Nom ou prénom du suspect manquant.')
-  if (!sansScreens && s.photo.length === 0) add('warn', 'identite', 'Pas de photo du suspect.')
-  if (!sansScreens && s.identite.length === 0) add('warn', 'identite', 'Pas de screen de la carte d’identité.')
+  if (s.identite.length === 0) add('warn', 'identite', 'Pas de screen de la carte d’identité.')
   if (s.recherche === null) add('warn', 'identite', 'Avis de recherche non vérifié.')
   if (s.bracelet === null) add('warn', 'identite', 'Bracelet non vérifié.')
 
   if (!s.mirandaLusA) add('warn', 'miranda', 'Droits Miranda pas marqués comme lus.')
 
-  if (!sansScreens && s.fouilleScreens.length === 0) add('warn', 'fouille', 'Pas de screen de la fouille.')
+  if (s.fouilleScreens.length === 0) add('warn', 'fouille', 'Pas de screen de l’inventaire.')
   if (s.saisies.length === 0 && !s.rienSurLui) add('error', 'fouille', 'Fouille non renseignée (objets saisis ou « rien sur lui »).')
   for (const x of s.saisies) {
     const name = x.label.trim() || (x.type === 'argent' ? 'argent sale' : 'un objet')
@@ -343,9 +355,7 @@ export function checkSuspect(i: Intervention, s: Suspect, settings: Settings, we
   if (s.menace && !s.menacePhrase.trim()) add('error', 'comportement', 'Menace sur agent retenue : il manque la phrase exacte.')
   if (s.accusations.length === 0) add('error', 'comportement', 'Aucune accusation retenue.')
 
-  if ((s.checklist?.length ?? 0) < CHECKLIST_TOTAL) add('warn', 'checklist', 'Checklist de fin de procédure non terminée.')
-  if (!sansScreens && s.amendesScreens.length === 0) add('warn', 'sanction', 'Pas de screen des amendes.')
-  if (!sansScreens && s.casierScreens.length === 0) add('warn', 'sanction', 'Pas de screen de l’ajout au casier.')
+  if ((s.checklist?.length ?? 0) < CHECKLIST_TOTAL) add('warn', 'fiche', 'Checklist de fin de procédure non terminée.')
   return out
 }
 

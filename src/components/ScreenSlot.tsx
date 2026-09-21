@@ -1,14 +1,14 @@
 import { useEffect, useState, type DragEvent } from 'react'
-import { Camera, ChevronLeft, ChevronRight, Copy, Crosshair, Download, ImagePlus, Trash2, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Copy, Crosshair, Download, ImagePlus, Trash2, X } from 'lucide-react'
 import type { ImageRef } from '@shared/types'
 import { type CaptureTarget, useStore } from '../store'
 import { dateTimeFr } from '../lib/format'
 import { api, imgUrl } from '../api'
-import { saveFiles, useScreenShare } from '../capture'
+import { saveFiles } from '../capture'
 import { ConfirmButton } from './ui'
 
 export function sameTarget(a: CaptureTarget | null, b: CaptureTarget | null): boolean {
-  return !!a && !!b && a.interventionId === b.interventionId && a.suspectId === b.suspectId && a.slot === b.slot
+  return !!a && !!b && a.dossierId === b.dossierId && a.sousId === b.sousId && a.slot === b.slot
 }
 
 export function ScreenSlot(props: {
@@ -22,8 +22,6 @@ export function ScreenSlot(props: {
   const captureTarget = useStore((s) => s.captureTarget)
   const setCaptureTarget = useStore((s) => s.setCaptureTarget)
   const removeImage = useStore((s) => s.removeImage)
-  const sharing = useScreenShare((s) => !!s.stream)
-  const grab = useScreenShare((s) => s.grab)
   const [over, setOver] = useState(false)
   const [viewer, setViewer] = useState<number | null>(null)
   const active = sameTarget(captureTarget, props.target)
@@ -52,23 +50,10 @@ export function ScreenSlot(props: {
           <span className="slot-count">{props.images.length}</span>
         </div>
         <div className="row gap-8">
-          {sharing && (
-            <button
-              type="button"
-              className="slot-target on"
-              title="Prend un screen de l’écran partagé et le range ici"
-              onClick={() => {
-                setCaptureTarget(props.target)
-                void grab()
-              }}
-            >
-              <Camera size={13} /> Capturer
-            </button>
-          )}
           <button
             type="button"
             className={`slot-target ${active ? 'on' : ''}`}
-            title="Les screens collés avec Ctrl+V ou capturés arrivent ici"
+            title="Les screens collés avec Ctrl+V arrivent ici"
             onClick={() => setCaptureTarget(props.target)}
           >
             <Crosshair size={13} />
@@ -80,7 +65,7 @@ export function ScreenSlot(props: {
       {props.images.length === 0 ? (
         <div className={`slot-empty ${props.portrait ? 'portrait' : ''}`}>
           <ImagePlus size={22} />
-          <span>{props.hint ?? 'Colle ton screen avec Ctrl+V, glisse une image ici, ou utilise « Capturer »'}</span>
+          <span>{props.hint ?? 'Colle ton screen avec Ctrl+V ou glisse l’image ici'}</span>
         </div>
       ) : (
         <div className={`slot-grid ${props.single ? 'single' : ''} ${props.portrait ? 'portrait' : ''}`}>

@@ -1,14 +1,16 @@
 import { create } from 'zustand'
 import type { Db, ImageRef, Intervention, Settings, Suspect } from '@shared/types'
+import type { NegoEchange, NegoOtage, NegoVehicule, Negociation } from '@shared/negociation'
 import { nowHm, todayIso, uid } from './lib/format'
 import type { FormationResultat } from '@shared/formation'
 import { ApiError, api } from './api'
 
 const deleteImageFile = (file: string) => void api.deleteImage(file).catch(() => undefined)
 
-export type StepKey = 'identite' | 'miranda' | 'fouille' | 'comportement' | 'sanction' | 'rapport' | 'checklist' | 'fiche'
-export type SlotKey = 'sceneScreens' | 'photo' | 'identite' | 'fouilleScreens' | 'amendesScreens' | 'casierScreens'
-export type SuspectSlot = Exclude<SlotKey, 'sceneScreens'>
+export type StepKey = 'identite' | 'miranda' | 'fouille' | 'comportement' | 'rapport' | 'fiche'
+/** Les seuls screens encore demandés : la carte d'identité et l'inventaire, plus ceux de la négociation. */
+export type SlotKey = 'identite' | 'fouilleScreens' | 'negoSuspects' | 'negoVehicule' | 'negoOtage'
+export type SuspectSlot = 'identite' | 'fouilleScreens'
 
 export type Route =
   | { page: 'accueil' }
@@ -19,12 +21,16 @@ export type Route =
   | { page: 'supervision' }
   | { page: 'formation' }
   | { page: 'formation-admin' }
-  | { page: 'screens' }
+  | { page: 'negociations' }
+  | { page: 'negociation'; id: string }
+  | { page: 'nego-guide' }
   | { page: 'reglages' }
 
 export interface CaptureTarget {
-  interventionId: string
-  suspectId: string | null
+  /** Dossier d'intervention ou négociation. */
+  dossierId: string
+  /** Suspect, véhicule ou otage concerné. */
+  sousId: string | null
   slot: SlotKey
 }
 
@@ -35,12 +41,11 @@ export interface Toast {
 }
 
 export const SLOT_LABELS: Record<SlotKey, string> = {
-  sceneScreens: 'Scène',
-  photo: 'Photo du suspect',
   identite: "Carte d'identité",
-  fouilleScreens: 'Fouille',
-  amendesScreens: 'Amendes',
-  casierScreens: 'Ajout au casier'
+  fouilleScreens: 'Inventaire',
+  negoSuspects: 'Photos des suspects',
+  negoVehicule: 'Plaque du véhicule',
+  negoOtage: "Carte d'identité de l'otage"
 }
 
 export const STEP_DEFAULT_SLOT: Record<StepKey, SuspectSlot> = {
@@ -48,10 +53,8 @@ export const STEP_DEFAULT_SLOT: Record<StepKey, SuspectSlot> = {
   miranda: 'fouilleScreens',
   fouille: 'fouilleScreens',
   comportement: 'fouilleScreens',
-  sanction: 'amendesScreens',
-  rapport: 'amendesScreens',
-  checklist: 'amendesScreens',
-  fiche: 'amendesScreens'
+  rapport: 'fouilleScreens',
+  fiche: 'fouilleScreens'
 }
 
 /** Matricule choisi à l'inscription, repris dans les réglages au premier chargement. */
@@ -64,7 +67,16 @@ export const defaultSettings: Settings = {
   matricule: '',
   nomAgent: '',
   collegues: [],
-  rapportCourt: true
+  rapportCourt: true,
+  sexe: 'H',
+  nom: '',
+  prenom: '',
+  grade: '',
+  specialisation: '',
+  unitCode: '20-S',
+  nmrJustice: '1293',
+  nmrRoom: '0001',
+  prochainCase: 1
 }
 
 function emptyDb(): Db {
@@ -72,7 +84,7 @@ function emptyDb(): Db {
     version: 1,
     settings: { ...defaultSettings },
     interventions: [],
-    inbox: [],
+    negociations: [],
     learned: { drogues: [], autres: [], accusations: [] }
   }
 }
@@ -184,8 +196,16 @@ interface State {
   removeSuspect(interventionId: string, suspectId: string): void
   updateSuspect(interventionId: string, suspectId: string, fn: (s: Suspect) => Partial<Suspect>): void
   addImage(target: CaptureTarget | null, img: ImageRef): string
-  removeImage(target: CaptureTarget | 'inbox', imgId: string): void
-  moveFromInbox(imgId: string, target: CaptureTarget): void
+  removeImage(target: CaptureTarget, imgId: string): void
+  createNegociation(): void
+  updateNegociation(id: string, fn: (n: Negociation) => Partial<Negociation>): void
+  deleteNegociation(id: string): void
+  addVehicule(negoId: string): void
+  removeVehicule(negoId: string, vehiculeId: string): void
+  addOtage(negoId: string): void
+  removeOtage(negoId: string, otageId: string): void
+  addEchange(negoId: string): void
+  removeEchange(negoId: string, echangeId: string): void
   updateSettings(patch: Partial<Settings>): void
   ajouterResultatFormation(resultat: FormationResultat): void
   learn(kind: keyof Db['learned'], values: string[]): void
@@ -199,9 +219,52 @@ function touch(i: Intervention, patch: Partial<Intervention>): Intervention {
 }
 
 export function getSlot(i: Intervention, target: CaptureTarget): ImageRef[] | null {
-  if (target.slot === 'sceneScreens') return i.sceneScreens
-  const s = i.suspects.find((x) => x.id === target.suspectId)
+  if (target.slot !== 'identite' && target.slot !== 'fouilleScreens') return null
+  const s = i.suspects.find((x) => x.id === target.sousId)
   return s ? s[target.slot] : null
+}
+
+export function negociationImages(n: Negociation): ImageRef[] {
+  return [...n.photosSuspects, ...n.vehicules.flatMap((v) => v.photos), ...n.otages.flatMap((o) => o.identite)]
+}
+
+export function negociationTitre(n: Negociation): string {
+  return n.lieu.trim() || n.typeLieu || 'Négociation sans lieu'
+}
+
+export function nouvelleNegociation(settings: Settings): Negociation {
+  const now = new Date()
+  return {
+    id: uid(),
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+    statut: 'en_cours',
+    date: todayIso(now),
+    heure: nowHm(now),
+    typeLieu: '',
+    lieu: '',
+    braqueurs: null,
+    otagesAnnonces: null,
+    agents: settings.matricule ? [settings.matricule] : [],
+    negociateur: settings.matricule ?? '',
+    relayeur: '',
+    perimetre: false,
+    offRadio: false,
+    vehicules: [],
+    photosSuspects: [],
+    otages: [],
+    echanges: [],
+    demandesAtypiques: '',
+    armeUtilisee: false,
+    armeMotifs: [],
+    armeDetail: '',
+    deroulement: '',
+    finType: 'enfuis',
+    finArretes: null,
+    finDetail: '',
+    poursuite: true,
+    resume: ''
+  }
 }
 
 export const useStore = create<State>((set, get) => ({
@@ -231,13 +294,12 @@ export const useStore = create<State>((set, get) => ({
   },
 
   go(route) {
-    // Hors d'un dossier, les screens vont dans « Screens à trier » et plus dans le dernier dossier ouvert.
+    // En quittant un dossier, on oublie la zone visée pour ne pas y envoyer un screen par erreur.
     set({ route, ...(route.page === 'dossier' ? {} : { captureTarget: null }) })
     if (route.page === 'dossier') {
       const i = get().db.interventions.find((x) => x.id === route.id)
-      if (!i) return
-      if (route.tab === 'commun') set({ captureTarget: { interventionId: i.id, suspectId: null, slot: 'sceneScreens' } })
-      else set({ captureTarget: { interventionId: i.id, suspectId: route.tab, slot: STEP_DEFAULT_SLOT[route.step] } })
+      if (!i || route.tab === 'commun') return
+      set({ captureTarget: { dossierId: i.id, sousId: route.tab, slot: STEP_DEFAULT_SLOT[route.step] } })
     }
   },
 
@@ -263,7 +325,7 @@ export const useStore = create<State>((set, get) => ({
     interventionImages(i).forEach((img) => deleteImageFile(img.file))
     set((st) => ({
       db: { ...st.db, interventions: st.db.interventions.filter((x) => x.id !== id) },
-      captureTarget: st.captureTarget?.interventionId === id ? null : st.captureTarget,
+      captureTarget: st.captureTarget?.dossierId === id ? null : st.captureTarget,
       route: { page: 'historique' }
     }))
   },
@@ -290,51 +352,120 @@ export const useStore = create<State>((set, get) => ({
   },
 
   addImage(target, img) {
-    const i = target && get().db.interventions.find((x) => x.id === target.interventionId)
-    if (!target || !i || !getSlot(i, target)) {
-      set((st) => ({ db: { ...st.db, inbox: [img, ...st.db.inbox] } }))
-      return 'Screens à trier'
+    if (!target) {
+      deleteImageFile(img.file)
+      get().toast('error', 'Clique d’abord sur la zone où doit aller le screen.')
+      return ''
     }
-    if (target.slot === 'sceneScreens') {
-      get().updateIntervention(i.id, (cur) => ({ sceneScreens: [...cur.sceneScreens, img] }))
-    } else {
+    if (target.slot === 'identite' || target.slot === 'fouilleScreens') {
       const slot = target.slot
-      get().updateSuspect(i.id, target.suspectId!, (s) => {
-        if (slot === 'photo') {
-          s.photo.forEach((old) => deleteImageFile(old.file))
-          return { photo: [img] }
-        }
-        return { [slot]: [...s[slot], img] }
-      })
+      const i = get().db.interventions.find((x) => x.id === target.dossierId)
+      if (!i || !getSlot(i, target)) return ''
+      get().updateSuspect(i.id, target.sousId!, (s) => ({ [slot]: [...s[slot], img] }))
+      const s = i.suspects.find((x) => x.id === target.sousId)
+      return s ? `${SLOT_LABELS[slot]} · ${suspectName(s)}` : SLOT_LABELS[slot]
     }
-    const s = i.suspects.find((x) => x.id === target.suspectId)
-    return s ? `${SLOT_LABELS[target.slot]} · ${suspectName(s)}` : SLOT_LABELS[target.slot]
+    // Négociation : photos des suspects, plaques et cartes d'identité des otages.
+    const n = get().db.negociations?.find((x) => x.id === target.dossierId)
+    if (!n) return ''
+    if (target.slot === 'negoSuspects') {
+      get().updateNegociation(n.id, (cur) => ({ photosSuspects: [...cur.photosSuspects, img] }))
+    } else if (target.slot === 'negoVehicule') {
+      get().updateNegociation(n.id, (cur) => ({
+        vehicules: cur.vehicules.map((v) => (v.id === target.sousId ? { ...v, photos: [...v.photos, img] } : v))
+      }))
+    } else {
+      get().updateNegociation(n.id, (cur) => ({
+        otages: cur.otages.map((o) => (o.id === target.sousId ? { ...o, identite: [...o.identite, img] } : o))
+      }))
+    }
+    return SLOT_LABELS[target.slot]
   },
 
   removeImage(target, imgId) {
-    if (target === 'inbox') {
-      const img = get().db.inbox.find((x) => x.id === imgId)
-      if (img) deleteImageFile(img.file)
-      set((st) => ({ db: { ...st.db, inbox: st.db.inbox.filter((x) => x.id !== imgId) } }))
+    if (target.slot === 'identite' || target.slot === 'fouilleScreens') {
+      const slot = target.slot
+      const i = get().db.interventions.find((x) => x.id === target.dossierId)
+      const s = i?.suspects.find((x) => x.id === target.sousId)
+      const img = s?.[slot].find((x) => x.id === imgId)
+      if (!img) return
+      deleteImageFile(img.file)
+      get().updateSuspect(target.dossierId, target.sousId!, (cur) => ({ [slot]: cur[slot].filter((x) => x.id !== imgId) }))
       return
     }
-    const i = get().db.interventions.find((x) => x.id === target.interventionId)
-    const img = i && getSlot(i, target)?.find((x) => x.id === imgId)
-    if (!i || !img) return
-    deleteImageFile(img.file)
-    if (target.slot === 'sceneScreens') {
-      get().updateIntervention(i.id, (cur) => ({ sceneScreens: cur.sceneScreens.filter((x) => x.id !== imgId) }))
+    const n = get().db.negociations?.find((x) => x.id === target.dossierId)
+    if (!n) return
+    const img = negociationImages(n).find((x) => x.id === imgId)
+    if (img) deleteImageFile(img.file)
+    if (target.slot === 'negoSuspects') {
+      get().updateNegociation(target.dossierId, (cur) => ({ photosSuspects: cur.photosSuspects.filter((x) => x.id !== imgId) }))
+    } else if (target.slot === 'negoVehicule') {
+      get().updateNegociation(target.dossierId, (cur) => ({
+        vehicules: cur.vehicules.map((v) => (v.id === target.sousId ? { ...v, photos: v.photos.filter((x) => x.id !== imgId) } : v))
+      }))
     } else {
-      const slot = target.slot
-      get().updateSuspect(i.id, target.suspectId!, (s) => ({ [slot]: s[slot].filter((x) => x.id !== imgId) }))
+      get().updateNegociation(target.dossierId, (cur) => ({
+        otages: cur.otages.map((o) => (o.id === target.sousId ? { ...o, identite: o.identite.filter((x) => x.id !== imgId) } : o))
+      }))
     }
   },
 
-  moveFromInbox(imgId, target) {
-    const img = get().db.inbox.find((x) => x.id === imgId)
-    if (!img) return
-    set((st) => ({ db: { ...st.db, inbox: st.db.inbox.filter((x) => x.id !== imgId) } }))
-    get().addImage(target, img)
+  // ---------- Négociations ----------
+
+  createNegociation() {
+    const n = nouvelleNegociation(get().db.settings)
+    set((st) => ({ db: { ...st.db, negociations: [n, ...(st.db.negociations ?? [])] } }))
+    get().go({ page: 'negociation', id: n.id })
+  },
+
+  updateNegociation(id, fn) {
+    set((st) => ({
+      db: {
+        ...st.db,
+        negociations: (st.db.negociations ?? []).map((n) => (n.id === id ? { ...n, ...fn(n), updatedAt: new Date().toISOString() } : n))
+      }
+    }))
+  },
+
+  deleteNegociation(id) {
+    const n = get().db.negociations?.find((x) => x.id === id)
+    if (n) negociationImages(n).forEach((img) => deleteImageFile(img.file))
+    set((st) => ({
+      db: { ...st.db, negociations: (st.db.negociations ?? []).filter((x) => x.id !== id) },
+      captureTarget: st.captureTarget?.dossierId === id ? null : st.captureTarget,
+      route: { page: 'negociations' }
+    }))
+  },
+
+  addVehicule(negoId) {
+    const v: NegoVehicule = { id: uid(), plaque: '', description: '', photos: [] }
+    get().updateNegociation(negoId, (n) => ({ vehicules: [...n.vehicules, v] }))
+  },
+
+  removeVehicule(negoId, vehiculeId) {
+    const n = get().db.negociations?.find((x) => x.id === negoId)
+    n?.vehicules.find((v) => v.id === vehiculeId)?.photos.forEach((img) => deleteImageFile(img.file))
+    get().updateNegociation(negoId, (cur) => ({ vehicules: cur.vehicules.filter((v) => v.id !== vehiculeId) }))
+  },
+
+  addOtage(negoId) {
+    const o: NegoOtage = { id: uid(), nom: '', recherche: null, arrete: false, identite: [], note: '' }
+    get().updateNegociation(negoId, (n) => ({ otages: [...n.otages, o] }))
+  },
+
+  removeOtage(negoId, otageId) {
+    const n = get().db.negociations?.find((x) => x.id === negoId)
+    n?.otages.find((o) => o.id === otageId)?.identite.forEach((img) => deleteImageFile(img.file))
+    get().updateNegociation(negoId, (cur) => ({ otages: cur.otages.filter((o) => o.id !== otageId) }))
+  },
+
+  addEchange(negoId) {
+    const e: NegoEchange = { id: uid(), revendication: '', contrepartie: '1 otage libéré' }
+    get().updateNegociation(negoId, (n) => ({ echanges: [...n.echanges, e] }))
+  },
+
+  removeEchange(negoId, echangeId) {
+    get().updateNegociation(negoId, (cur) => ({ echanges: cur.echanges.filter((e) => e.id !== echangeId) }))
   },
 
   updateSettings(patch) {

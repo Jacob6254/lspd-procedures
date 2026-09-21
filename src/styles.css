@@ -2908,3 +2908,169 @@ kbd {
   font-size: 12.5px;
   color: var(--muted);
 }
+
+/* ---------- Négociation ---------- */
+
+.gap-6 {
+  gap: 6px;
+}
+
+.liste-consignes {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-2);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.etapes-nego {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.etape-nego {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.etape-nego header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.etape-nego h3 {
+  margin: 0;
+  font-family: var(--title);
+  font-size: 14px;
+  color: var(--text);
+}
+.etape-num {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  font-family: var(--title);
+  font-weight: 700;
+  font-size: 12px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-text);
+}
+.etape-nego ul {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.memo-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.memo-table th {
+  text-align: left;
+  font-family: var(--title);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding: 0 10px 8px;
+}
+.memo-table td {
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  color: var(--text-2);
+}
+
+.bloc-liste {
+  border: 1px solid var(--border-2);
+  border-radius: 10px;
+  padding: 12px;
+  background: var(--panel-2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bloc-liste-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.bloc-liste-head strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--title);
+  font-size: 12.5px;
+  flex: 1;
+}
+
+.nego-generer {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 20px;
+  border-radius: var(--radius);
+  border: 1px solid var(--accent-border);
+  background: linear-gradient(120deg, rgba(59, 110, 230, 0.14), rgba(59, 110, 230, 0.04));
+}
+.nego-generer > div {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.nego-generer strong {
+  font-family: var(--title);
+  font-size: 15px;
+}
+.nego-generer span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.rapport-pages {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+.rapport-pages figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rapport-pages img {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border-2);
+  background: #fff;
+}
+.rapport-pages figcaption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.rapport-pages figcaption span {
+  flex: 1;
+  font-family: var(--title);
+}
+
+.fiche-checklist {
+  grid-column: 1 / -1;
+  margin-top: 16px;
+}
