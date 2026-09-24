@@ -1,4 +1,5 @@
 import type { AccountInfo, AgentSummary, ConfigInscription, Db, ImageRef, Me, ModeInscription, SupervisionNote, WeaponData } from '@shared/types'
+import type { BaseTableau } from '@shared/plan'
 
 export class ApiError extends Error {
   constructor(
@@ -49,6 +50,11 @@ async function request<T>(method: string, path: string, body?: unknown, raw?: Bl
 
 export function imgUrl(file: string): string {
   return control ? adminImgUrl(control, file) : `/api/images/${encodeURIComponent(file)}`
+}
+
+/** Screen posé sur un tableau qu'un autre agent a publié au poste. */
+export function posteImgUrl(agent: string, file: string): string {
+  return `/api/poste/${encodeURIComponent(agent)}/images/${encodeURIComponent(file)}`
 }
 
 /** Image d'un autre agent, vue depuis la supervision. */
@@ -110,6 +116,12 @@ export const api = {
 
   notes: () => request<SupervisionNote[]>('GET', '/notes'),
   markNotesRead: (ids: string[]) => request<{ ok: true }>('POST', '/notes/lu', { ids }),
+
+  // Carte tactique et tableaux d'enquête : fichiers séparés, jamais mêlés au dossier.
+  listeTableaux: <T extends BaseTableau>(quoi: string) => request<T[]>('GET', `/${quoi}`),
+  tableauxPoste: <T extends BaseTableau>(quoi: string) => request<T[]>('GET', `/${quoi}/poste`),
+  enregistrerTableau: <T extends BaseTableau>(quoi: string, t: T) => request<T>('PUT', `/${quoi}/${t.id}`, t),
+  supprimerTableau: (quoi: string, id: string) => request<{ ok: true }>('DELETE', `/${quoi}/${id}`),
 
   getWeapons: (refresh: boolean) =>
     request<{ data: WeaponData; source: 'live' | 'cache' | 'bundled' }>('GET', `/weapons${refresh ? '?refresh=1' : ''}`)

@@ -1,4 +1,22 @@
-import { BookOpen, Crosshair, Eye, FileText, Handshake, Home, LogOut, Plane, Plus, Radio, ScrollText, Settings, ShieldCheck, Target, Truck } from 'lucide-react'
+import {
+  BookOpen,
+  Crosshair,
+  Eye,
+  FileText,
+  Handshake,
+  Home,
+  LogOut,
+  Map as MapIcon,
+  Network,
+  Plane,
+  Plus,
+  Radio,
+  ScrollText,
+  Settings,
+  ShieldCheck,
+  Target,
+  Truck
+} from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { type Route, interventionTitle, negociationTitre, suspectName, useSaveStatus, useStore } from '../store'
 import { useAuth } from '../auth'
@@ -89,6 +107,12 @@ export function Sidebar() {
         ))}
         <NavItem icon={Handshake} label="Mes négociations" active={is('negociations')} onClick={() => go({ page: 'negociations' })} />
         <NavItem icon={BookOpen} label="Comment négocier" active={is('nego-guide')} onClick={() => go({ page: 'nego-guide' })} />
+
+        <div className="nav-section">Opérations</div>
+        <NavItem icon={MapIcon} label="Table de briefing" active={is('operations') || is('operation')} onClick={() => go({ page: 'operations' })} />
+
+        <div className="nav-section">Enquêtes</div>
+        <NavItem icon={Network} label="Tableaux d’enquête" active={is('enquetes') || is('enquete')} onClick={() => go({ page: 'enquetes' })} />
 
         <div className="nav-section">Formations</div>
         <NavItem

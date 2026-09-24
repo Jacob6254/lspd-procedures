@@ -19,6 +19,10 @@ import { hasUnsavedChanges } from './store'
 import { NegociationsPage } from './pages/Negociations'
 import { NegociationPage } from './pages/Negociation'
 import { NegoGuidePage } from './pages/NegoGuide'
+import { OperationsPage } from './pages/Operations'
+import { OperationPage } from './pages/Operation'
+import { EnquetesPage } from './pages/Enquetes'
+import { EnquetePage } from './pages/Enquete'
 import { GuidePage } from './pages/Guide'
 import { ReglagesPage } from './pages/Reglages'
 import { LoginPage } from './pages/Login'
@@ -92,6 +96,10 @@ function Workspace() {
         {route.page === 'negociations' && <NegociationsPage />}
         {route.page === 'negociation' && <NegociationPage key={route.id} id={route.id} />}
         {route.page === 'nego-guide' && <NegoGuidePage />}
+        {route.page === 'operations' && <OperationsPage />}
+        {route.page === 'operation' && <OperationPage key={route.id} id={route.id} />}
+        {route.page === 'enquetes' && <EnquetesPage />}
+        {route.page === 'enquete' && <EnquetePage key={route.id} id={route.id} />}
         {route.page === 'guide' && <GuidePage key={route.id} id={route.id} />}
         {route.page === 'reglages' && <ReglagesPage />}
       </main>

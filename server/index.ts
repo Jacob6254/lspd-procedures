@@ -742,6 +742,126 @@ api.post('/notes/lu', requireAuth, async (req, res) => {
   res.json({ ok: true })
 })
 
+
+// ---------- Carte tactique et tableaux d'enquête ----------
+// Ces deux modules rangent leurs données dans leurs propres fichiers, à côté du
+// dossier : une erreur de leur côté ne peut pas abîmer les interventions.
+
+interface Tableau {
+  id: string
+  nom: string
+  auteur: string
+  auteurNom: string
+  publiee: boolean
+  maj: string
+}
+
+const TABLEAUX = ['operations', 'enquetes'] as const
+const MAX_TABLEAUX = 60
+const MAX_POIDS = 2_000_000
+
+const tableauxFile = (acc: Account, quoi: string) => join(userDir(acc), `${quoi}.json`)
+
+async function readTableaux(acc: Account, quoi: string): Promise<Tableau[]> {
+  const f = tableauxFile(acc, quoi)
+  if (!existsSync(f)) return []
+  try {
+    const v = JSON.parse(await readFile(f, 'utf8'))
+    return Array.isArray(v) ? v : []
+  } catch {
+    return []
+  }
+}
+
+/** Les screens rattachés aux tableaux qu'un agent a publiés : eux seuls sortent de son dossier. */
+async function imagesPubliees(acc: Account): Promise<Set<string>> {
+  const out = new Set<string>()
+  const ramasse = (v: unknown): void => {
+    if (typeof v === 'string') {
+      if (IMAGE_NAME.test(v)) out.add(v)
+    } else if (Array.isArray(v)) {
+      for (const x of v) ramasse(x)
+    } else if (v && typeof v === 'object') {
+      for (const x of Object.values(v)) ramasse(x)
+    }
+  }
+  for (const quoi of TABLEAUX) {
+    for (const t of await readTableaux(acc, quoi)) if (t.publiee) ramasse(t)
+  }
+  return out
+}
+
+/** Le même jeu de routes pour les opérations et pour les enquêtes. */
+function monterTableaux(quoi: string): void {
+  api.get(`/${quoi}`, requireAuth, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store')
+    res.json(await readTableaux(req.account!, quoi))
+  })
+
+  // Ce que les autres agents ont publié au poste.
+  api.get(`/${quoi}/poste`, requireAuth, async (req, res) => {
+    const out: Tableau[] = []
+    for (const acc of accounts) {
+      if (acc.id === req.account!.id) continue
+      for (const t of await readTableaux(acc, quoi)) if (t.publiee) out.push({ ...t, auteur: acc.username })
+    }
+    out.sort((a, b) => (a.maj < b.maj ? 1 : -1))
+    res.setHeader('Cache-Control', 'no-store')
+    res.json(out)
+  })
+
+  api.put(`/${quoi}/:id`, requireAuth, async (req, res) => {
+    const acc = req.account!
+    const recu = req.body as Tableau | null
+    if (!recu || typeof recu !== 'object' || recu.id !== req.params.id) {
+      res.status(400).json({ error: 'Contenu invalide' })
+      return
+    }
+    if (JSON.stringify(recu).length > MAX_POIDS) {
+      res.status(413).json({ error: 'Tableau trop chargé' })
+      return
+    }
+    // L'auteur et la date viennent du serveur, jamais du navigateur.
+    const t: Tableau = { ...recu, auteur: acc.username, publiee: recu.publiee === true, maj: new Date().toISOString() }
+    await queueWrite(acc, async () => {
+      const liste = await readTableaux(acc, quoi)
+      const i = liste.findIndex((x) => x.id === t.id)
+      if (i >= 0) liste[i] = t
+      else liste.unshift(t)
+      await mkdir(userDir(acc), { recursive: true })
+      await writeJsonAtomic(tableauxFile(acc, quoi), liste.slice(0, MAX_TABLEAUX))
+    })
+    res.json(t)
+  })
+
+  api.delete(`/${quoi}/:id`, requireAuth, async (req, res) => {
+    const acc = req.account!
+    await queueWrite(acc, async () => {
+      const liste = await readTableaux(acc, quoi)
+      await writeJsonAtomic(
+        tableauxFile(acc, quoi),
+        liste.filter((x) => x.id !== req.params.id)
+      )
+    })
+    res.json({ ok: true })
+  })
+}
+
+for (const quoi of TABLEAUX) monterTableaux(quoi)
+
+// Un screen posé sur un tableau publié, vu par un autre agent.
+api.get('/poste/:agent/images/:file', requireAuth, async (req, res) => {
+  const file = String(req.params.file)
+  const acc = accounts.find((a) => a.username.toLowerCase() === String(req.params.agent).toLowerCase())
+  if (!acc || !IMAGE_NAME.test(file) || !(await imagesPubliees(acc)).has(file)) {
+    res.status(404).end()
+    return
+  }
+  res.sendFile(join(screensDir(acc), file), { headers: { 'Cache-Control': 'private, max-age=600' } }, (err) => {
+    if (err && !res.headersSent) res.status(404).end()
+  })
+})
+
 api.get('/weapons', requireAuth, async (req, res) => {
   const force = req.query.refresh === '1' && (!weapons || Date.now() - weapons.checkedAt > 60_000)
   await loadWeapons(force)

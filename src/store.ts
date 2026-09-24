@@ -21,6 +21,10 @@ export type Route =
   | { page: 'negociations' }
   | { page: 'negociation'; id: string }
   | { page: 'nego-guide' }
+  | { page: 'operations' }
+  | { page: 'operation'; id: string }
+  | { page: 'enquetes' }
+  | { page: 'enquete'; id: string }
   | { page: 'guide'; id: string }
   | { page: 'reglages' }
 

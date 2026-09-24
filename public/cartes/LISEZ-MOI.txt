@@ -1,0 +1,11 @@
+Les fonds de carte du module Operations.
+
+Depose ici les quatre images, en .webp, avec exactement ces noms :
+
+  nuit.webp        la carte de nuit, avec les lumieres de la ville (fond par defaut)
+  blueprint.webp   le plan bleu, sans filigrane et sans les annotations du poster
+  satellite.webp   la vue satellite (a remettre a l endroit : Los Santos en bas)
+  atlas.webp       la carte verte et lisible
+
+Toutes doivent cadrer l ile entiere. Le calage exact se regle ensuite dans
+shared/operation.ts, champ "ile" de chaque fond.
