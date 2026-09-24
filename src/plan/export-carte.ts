@@ -28,7 +28,9 @@ export async function exporterCarte(op: Operation): Promise<Sortie> {
   const sw = img ? img.naturalWidth * fond.ile.w : 1000
   const sh = img ? img.naturalHeight * fond.ile.h : 1200
 
-  const L = Math.round(Math.min(LARGEUR_MAX, Math.max(1100, sw)))
+  // Même si le fond est petit, on sort une image assez grande pour que les
+  // sigles et les libellés restent lisibles une fois collés dans Discord.
+  const L = Math.round(Math.min(LARGEUR_MAX, Math.max(1400, sw)))
   const H = Math.round((sh / sw) * L)
 
   const canvas = document.createElement('canvas')

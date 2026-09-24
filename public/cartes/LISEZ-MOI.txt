@@ -1,16 +1,18 @@
 Les fonds de carte du module Operations.
 
-Trois fonds sont installes :
+Quatre fonds sont installes :
 
-  nuit.webp        la carte de nuit (fond par defaut)
-  satellite.webp   la vue satellite, remise a l endroit
-  atlas.webp       la carte verte et lisible
+  nuit2.webp       la carte de nuit (fond par defaut) - 1108x1419
+  nuit.webp        une autre nuit, moins belle mais plus definie - 1561x2000
+  satellite.webp   la vue satellite, remise a l endroit - 850x1332
+  atlas.webp       la carte verte et lisible - 1035x1500
 
 Les positions des marqueurs sont enregistrees en coordonnees de l ile, pas en
 pixels : on passe d un fond a l autre sans que rien ne bouge. Le cadre de l ile
 dans chaque image est releve dans shared/operation.ts, champ "ile" de chaque
-fond. Si on remplace une image, il faut relever le nouveau cadre.
+fond, et il a ete verifie sur cinq reperes (Sandy Shores, le centre-ville,
+l aeroport, Paleto, l est).
 
-Pour ajouter un fond : deposer le fichier ici, ajouter une entree dans FONDS,
-et relever son cadre "ile" (fractions x, y, largeur, hauteur de la zone
-occupee par l ile dans l image).
+La definition de l image borne le zoom : plus l image est grande, plus on peut
+zoomer sans que ca devienne flou. Pour remplacer un fond, deposer le fichier
+ici et relever son nouveau cadre "ile".

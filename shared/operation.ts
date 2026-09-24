@@ -77,12 +77,13 @@ export interface FondCarte {
  * qu'un seul marqueur ne bouge. Si on remplace une image, il faut le refaire.
  */
 export const FONDS: FondCarte[] = [
-  { id: 'nuit', nom: 'Nuit', fichier: '/cartes/nuit.webp', ile: { x: 0.117, y: 0.063, w: 0.771, h: 0.901 }, sombre: true },
+  { id: 'nuit2', nom: 'Nuit', fichier: '/cartes/nuit2.webp', ile: { x: 0.108, y: 0.0565, w: 0.822, h: 0.9405 }, sombre: true },
+  { id: 'nuit', nom: 'Nuit détail', fichier: '/cartes/nuit.webp', ile: { x: 0.117, y: 0.063, w: 0.771, h: 0.901 }, sombre: true },
   { id: 'satellite', nom: 'Satellite', fichier: '/cartes/satellite.webp', ile: { x: 0.019, y: 0.06, w: 0.918, h: 0.902 }, sombre: true },
   { id: 'atlas', nom: 'Atlas', fichier: '/cartes/atlas.webp', ile: { x: 0.071, y: 0.091, w: 0.821, h: 0.857 }, sombre: false }
 ]
 
-export const FOND_DEFAUT = 'nuit'
+export const FOND_DEFAUT = 'nuit2'
 
 export function fondCarte(id: string): FondCarte {
   return FONDS.find((f) => f.id === id) ?? FONDS[0]
