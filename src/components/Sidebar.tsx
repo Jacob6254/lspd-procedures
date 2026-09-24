@@ -57,11 +57,11 @@ export function Sidebar() {
       <nav className="nav">
         <div className="nav-section">Général</div>
         <NavItem icon={Home} label="Accueil" active={is('accueil')} onClick={() => go({ page: 'accueil' })} />
+
+        <div className="nav-section">Procédure</div>
         <button type="button" className="nav-new" onClick={createIntervention}>
           <Plus size={17} /> Nouvelle intervention
         </button>
-
-        {enCours.length > 0 && <div className="nav-section">En cours</div>}
         {enCours.map((i) => (
           <button
             type="button"
@@ -77,10 +77,7 @@ export function Sidebar() {
           </button>
         ))}
 
-        <div className="nav-section">Registre</div>
-        <NavItem icon={FileText} label="Historique" active={is('historique')} onClick={() => go({ page: 'historique' })} />
-        <NavItem icon={Crosshair} label="Répertoire armes" active={is('armes')} onClick={() => go({ page: 'armes' })} />
-        <NavItem icon={Radio} label="Code Radio" active={is('radio')} onClick={() => go({ page: 'radio' })} />
+        <NavItem icon={FileText} label="Mes procédures" active={is('historique')} onClick={() => go({ page: 'historique' })} />
 
         <div className="nav-section">Négociation</div>
         <button type="button" className="nav-new" onClick={createNegociation}>
@@ -102,6 +99,10 @@ export function Sidebar() {
         ))}
         <NavItem icon={Handshake} label="Mes négociations" active={is('negociations')} onClick={() => go({ page: 'negociations' })} />
         <NavItem icon={BookOpen} label="Comment négocier" active={is('nego-guide')} onClick={() => go({ page: 'nego-guide' })} />
+
+        <div className="nav-section">Registre</div>
+        <NavItem icon={Crosshair} label="Répertoire armes" active={is('armes')} onClick={() => go({ page: 'armes' })} />
+        <NavItem icon={Radio} label="Code Radio" active={is('radio')} onClick={() => go({ page: 'radio' })} />
 
         {me?.role === 'admin' && (
           <>

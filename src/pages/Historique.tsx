@@ -30,7 +30,7 @@ export function HistoriquePage() {
 
   return (
     <div className="page">
-      <PageHeader icon={FileText} title="Historique" subtitle="Toutes tes interventions enregistrées" />
+      <PageHeader icon={FileText} title="Mes procédures" subtitle="Toutes tes interventions enregistrées, terminées ou en cours" />
       <div className="toolbar">
         <div className="search">
           <Search size={16} />
