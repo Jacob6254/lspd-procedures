@@ -83,11 +83,13 @@ export function OperationPage({ id }: { id: string }) {
   const [brouillon, setBrouillon] = useState<PointPlan[]>([])
   const [curseur, setCurseur] = useState<PointPlan | null>(null)
   const [ratio, setRatio] = useState(RATIO_DEFAUT)
+  // Largeur utile du fond, en pixels d'origine : elle borne le zoom.
+  const [pixelsFond, setPixelsFond] = useState(0)
   const [fondAbsent, setFondAbsent] = useState(false)
   const [sortieExport, setSortieExport] = useState<{ image: Sortie; texte: string } | null>(null)
   const [occupe, setOccupe] = useState(false)
 
-  const ctrl = usePlan(ratio)
+  const ctrl = usePlan(ratio, pixelsFond)
   const zone = ctrl.cadre
   const fond = fondCarte(op?.fond ?? '')
   const lecture = !mien
@@ -262,7 +264,13 @@ export function OperationPage({ id }: { id: string }) {
           <button type="button" className="btn btn-ghost btn-icon" title="Voir toute la carte" onClick={ctrl.recadrer}>
             <MapIcon size={16} />
           </button>
-          <button type="button" className="btn btn-ghost btn-icon" title="Zoomer" onClick={() => ctrl.zoomer(1.3)}>
+          <button
+            type="button"
+            className="btn btn-ghost btn-icon"
+            title={ctrl.auMaximum ? `Zoom maximum : le fond « ${fond.nom} » ne contient pas plus de détail` : 'Zoomer'}
+            disabled={ctrl.auMaximum}
+            onClick={() => ctrl.zoomer(1.3)}
+          >
             <ZoomIn size={16} />
           </button>
         </div>
@@ -413,6 +421,7 @@ export function OperationPage({ id }: { id: string }) {
                   const img = e.currentTarget
                   const r = (img.naturalWidth * fond.ile.w) / (img.naturalHeight * fond.ile.h)
                   if (Number.isFinite(r) && r > 0.2 && r < 5) setRatio(r)
+                  setPixelsFond(Math.round(img.naturalWidth * fond.ile.w))
                 }}
                 onError={() => setFondAbsent(true)}
               />
@@ -509,6 +518,10 @@ export function OperationPage({ id }: { id: string }) {
               {outil === 'fleche' && (brouillon.length ? 'Entrée pour terminer l’itinéraire' : 'Clique le premier point de l’itinéraire')}
               {outil === 'etiquette' && 'Clique où écrire'}
             </div>
+          )}
+
+          {ctrl.auMaximum && (
+            <div className="plan-note">Zoom maximum pour la définition du fond « {fond.nom} »</div>
           )}
         </div>
 

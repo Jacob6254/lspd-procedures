@@ -18,6 +18,11 @@ export interface Vue {
 
 const K_MIN = 0.6
 const K_MAX = 14
+/**
+ * Jusqu'à combien on accepte d'étirer l'image du fond. Au-delà, on n'affiche
+ * plus que de la bouillie : le navigateur invente des pixels qui n'existent pas.
+ */
+const ETIREMENT_MAX = 3
 
 export interface CtrlPlan {
   /**
@@ -37,12 +42,18 @@ export interface CtrlPlan {
   zoomer(facteur: number): void
   recadrer(): void
   demarrerPan(e: ReactPointerEvent): void
+  /** Vrai quand on ne peut plus agrandir sans perdre en netteté. */
+  auMaximum: boolean
   /** Vrai pendant un glissement : sert à ne pas déclencher le clic derrière. */
   panEnCours: boolean
   pret: boolean
 }
 
-export function usePlan(ratio: number): CtrlPlan {
+/**
+ * `pixelsSource` est la largeur, en pixels de l'image d'origine, de la zone
+ * qu'on affiche. Zéro quand il n'y a pas d'image (le tableau d'enquête).
+ */
+export function usePlan(ratio: number, pixelsSource = 0): CtrlPlan {
   const element = useRef<HTMLDivElement | null>(null)
   const [noeud, setNoeud] = useState<HTMLDivElement | null>(null)
   const [boite, setBoite] = useState({ w: 0, h: 0 })
@@ -61,6 +72,10 @@ export function usePlan(ratio: number): CtrlPlan {
   const baseRef = useRef(base)
   baseRef.current = base
   const monde = { w: base * vue.k, h: (base / ratio) * vue.k }
+
+  const kMax = pixelsSource > 0 ? Math.min(K_MAX, Math.max(1.6, (pixelsSource * ETIREMENT_MAX) / base)) : K_MAX
+  const kMaxRef = useRef(kMax)
+  kMaxRef.current = kMax
 
   const centrer = useCallback(
     (k = 1) => {
@@ -145,7 +160,7 @@ export function usePlan(ratio: number): CtrlPlan {
       const cx = e.clientX - r.left
       const cy = e.clientY - r.top
       setVue((v) => {
-        const k = Math.min(K_MAX, Math.max(K_MIN, v.k * (e.deltaY < 0 ? 1.15 : 1 / 1.15)))
+        const k = Math.min(kMaxRef.current, Math.max(K_MIN, v.k * (e.deltaY < 0 ? 1.15 : 1 / 1.15)))
         if (k === v.k) return v
         const f = k / v.k
         return { k, x: cx - (cx - v.x) * f, y: cy - (cy - v.y) * f }
@@ -161,7 +176,7 @@ export function usePlan(ratio: number): CtrlPlan {
     const cx = el.clientWidth / 2
     const cy = el.clientHeight / 2
     setVue((v) => {
-      const k = Math.min(K_MAX, Math.max(K_MIN, v.k * facteur))
+      const k = Math.min(kMaxRef.current, Math.max(K_MIN, v.k * facteur))
       const f = k / v.k
       return { k, x: cx - (cx - v.x) * f, y: cy - (cy - v.y) * f }
     })
@@ -205,6 +220,7 @@ export function usePlan(ratio: number): CtrlPlan {
     recadrer: () => centrer(1),
     demarrerPan,
     panEnCours,
+    auMaximum: vue.k >= kMax - 0.001,
     pret: boite.w > 0
   }
 }

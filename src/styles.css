@@ -4499,3 +4499,16 @@ kbd {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+.plan-note {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  background: rgba(10, 12, 20, 0.9);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  font-size: 11px;
+  color: var(--muted);
+  pointer-events: none;
+}
