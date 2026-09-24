@@ -70,7 +70,18 @@ function couper(ctx: CanvasRenderingContext2D, texte: string, largeur: number): 
   return out
 }
 
-/** Sceau du LSPD, dessiné à la main pour ne dépendre d'aucun fichier. */
+/** L'écusson officiel du poste, chargé une fois pour toutes les pages. */
+let ecusson: HTMLImageElement | null = null
+
+function poserEcusson(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
+  if (ecusson) {
+    ctx.drawImage(ecusson, cx - r, cy - r, r * 2, r * 2)
+    return
+  }
+  dessinerSceau(ctx, cx, cy, r)
+}
+
+/** Sceau de secours, dessiné à la main si l'écusson ne charge pas. */
 function dessinerSceau(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
   ctx.save()
   ctx.beginPath()
@@ -144,7 +155,7 @@ function enTetePremierePage(
   const w = ctx.measureText('OFFICIAL DOCUMENT').width
   ctx.fillText('OFFICIAL DOCUMENT', L - MARGE - w, MARGE + 10)
 
-  dessinerSceau(ctx, MARGE + 62, MARGE + 60, 60)
+  poserEcusson(ctx, MARGE + 58, MARGE + 58, 56)
 
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
@@ -270,7 +281,7 @@ function enTeteSuite(ctx: CanvasRenderingContext2D, numeroCase: string, page: nu
   ctx.fillStyle = '#000'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
-  dessinerSceau(ctx, MARGE + 34, MARGE + 30, 32)
+  poserEcusson(ctx, MARGE + 30, MARGE + 30, 28)
 
   ctx.font = `bold 22px ${MACHINE}`
   const titre = 'LOS SANTOS POLICE DEPARTMENT'
@@ -407,7 +418,8 @@ function chargerImage(src: string): Promise<HTMLImageElement | null> {
 export async function genererRapportNego(n: Negociation, settings: Settings, numeroCase: string): Promise<PageRapport[]> {
   const blocs = blocsNegociation(n)
 
-  // Les images sont chargées une fois pour toutes avant la mise en page.
+  // L'écusson et les screens sont chargés une fois pour toutes avant la mise en page.
+  ecusson ??= await chargerImage('/lspdlogo.webp')
   const images = new Map<string, HTMLImageElement>()
   for (const b of blocs) {
     if (b.type === 'image' && !images.has(b.src)) {
@@ -441,13 +453,14 @@ export async function genererRapportNego(n: Negociation, settings: Settings, num
       const gauche = bx + 34
       const droite = bx + bw - 34
       const largeur = droite - gauche
-      const bas = haut + bh - 34
+      const bas = haut + bh - 42
 
       ctx.fillStyle = '#000'
       ctx.textAlign = 'left'
       ctx.font = `bold 21px ${SERIF}`
-      ctx.fillText(`LE RAPPORT - du ${dateFr(n.date)} à ${heureFr(n.heure)}${page > 1 ? ' (suite)' : ''}`, gauche, y)
-      y += 40
+      ctx.fillText(`LE RAPPORT — du ${dateFr(n.date)} à ${heureFr(n.heure)}${page > 1 ? ' (suite)' : ''}`, gauche, y)
+      ligneH(ctx, y + 12, gauche, droite, 1)
+      y += 46
 
       while (index < blocs.length) {
         const b = blocs[index]
@@ -456,21 +469,36 @@ export async function genererRapportNego(n: Negociation, settings: Settings, num
         if (b.type === 'vide') hauteur = 16
         else if (b.type === 'image') {
           const img = images.get(b.src)
-          hauteur = img ? Math.min(300, (img.height / img.width) * 420) + 34 : 26
+          hauteur = img ? Math.min(250, (img.height / img.width) * 430) + 40 : 26
+        } else if (b.type === 'titre') {
+          hauteur = 38
         } else {
-          ctx.font = b.type === 'titre' ? `bold 19px ${SERIF}` : `17px ${SERIF}`
-          const retrait = b.type === 'puce' ? (b.niveau === 2 ? 60 : 30) : 0
-          hauteur = couper(ctx, b.texte, largeur - retrait).length * 26 + (b.type === 'titre' ? 12 : 0)
+          ctx.font = `17px ${SERIF}`
+          const retrait = b.type === 'puce' ? (b.niveau === 2 ? 52 : 26) : 0
+          hauteur = couper(ctx, b.texte, largeur - retrait - (b.type === 'puce' ? 18 : 0)).length * 25
         }
 
         if (y + hauteur > bas && index > 0) break
 
-        // Une ligne qui annonce une image part avec elle à la page suivante.
+        // Une ligne qui annonce une image, ou un titre de section, part avec sa suite.
         const apres = blocs[index + 1]
         if ((b.type === 'ligne' || b.type === 'puce') && apres?.type === 'image') {
           const suivante = images.get(apres.src)
-          const hImage = suivante ? Math.min(300, (suivante.height / suivante.width) * 420) + 34 : 26
+          const hImage = suivante ? Math.min(250, (suivante.height / suivante.width) * 430) + 40 : 26
           if (y + hauteur + hImage > bas) break
+        }
+        if (b.type === 'titre') {
+          const suite = blocs[index + 1]?.type === 'vide' ? blocs[index + 2] : blocs[index + 1]
+          let hSuite = 26
+          if (suite?.type === 'image') {
+            const img2 = images.get(suite.src)
+            hSuite = img2 ? Math.min(250, (img2.height / img2.width) * 430) + 40 : 26
+          } else if (suite && suite.type !== 'vide') {
+            ctx.font = `17px ${SERIF}`
+            const r2 = suite.type === 'puce' ? (suite.niveau === 2 ? 52 : 26) : 0
+            hSuite = couper(ctx, suite.texte, largeur - r2 - (suite.type === 'puce' ? 18 : 0)).length * 25
+          }
+          if (y + hauteur + hSuite > bas) break
         }
 
         if (b.type === 'vide') {
@@ -478,37 +506,54 @@ export async function genererRapportNego(n: Negociation, settings: Settings, num
         } else if (b.type === 'image') {
           const img = images.get(b.src)
           if (img) {
-            const w = Math.min(420, img.width)
+            const w = Math.min(430, img.width)
             const h = (img.height / img.width) * w
-            const hh = Math.min(300, h)
+            const hh = Math.min(250, h)
             const ww = (img.width / img.height) * hh
-            ctx.drawImage(img, gauche + 30, y, ww, hh)
-            ctx.strokeStyle = '#000'
+            ctx.drawImage(img, gauche + 26, y + 4, ww, hh)
+            ctx.strokeStyle = '#5c5c5c'
             ctx.lineWidth = 1
-            ctx.strokeRect(gauche + 30, y, ww, hh)
-            ctx.font = `italic 14px ${SERIF}`
-            ctx.fillText(b.legende, gauche + 30, y + hh + 20)
-            y += hh + 34
+            ctx.strokeRect(gauche + 26, y + 4, ww, hh)
+            ctx.fillStyle = '#333'
+            ctx.font = `italic 13.5px ${SERIF}`
+            ctx.fillText(b.legende, gauche + 26, y + hh + 22)
+            ctx.fillStyle = '#000'
+            y += hh + 36
           } else {
             ctx.font = `italic 16px ${SERIF}`
             ctx.fillText(`[ ${b.legende} ]`, gauche + 30, y + 16)
             y += 26
           }
+        } else if (b.type === 'titre') {
+          ctx.font = `bold 18px ${SERIF}`
+          const titre = b.texte.toUpperCase()
+          ctx.fillText(titre, gauche, y + 18)
+          ligneH(ctx, y + 26, gauche, droite, 0.8)
+          y += 38
         } else {
-          ctx.font = b.type === 'titre' ? `bold 19px ${SERIF}` : `17px ${SERIF}`
-          const retrait = b.type === 'puce' ? (b.niveau === 2 ? 60 : 30) : 0
-          const lignes = couper(ctx, b.texte, largeur - retrait)
+          ctx.font = `17px ${SERIF}`
+          const retrait = b.type === 'puce' ? (b.niveau === 2 ? 52 : 26) : 0
+          const lignes = couper(ctx, b.texte, largeur - retrait - (b.type === 'puce' ? 18 : 0))
           lignes.forEach((l, k) => {
-            const prefixe = b.type === 'puce' && k === 0 ? '• ' : ''
-            ctx.fillText(prefixe + l, gauche + retrait + (b.type === 'puce' && k > 0 ? 16 : 0), y + 18)
-            y += 26
+            if (b.type === 'puce' && k === 0) ctx.fillText('•', gauche + retrait, y + 18)
+            ctx.fillText(l, gauche + retrait + (b.type === 'puce' ? 18 : 0), y + 17)
+            y += 25
           })
-          if (b.type === 'titre') y += 12
         }
         index++
       }
 
-      pages.push({ dataUrl: canvas.toDataURL('image/png'), blob: dataUrlVersBlob(canvas.toDataURL('image/png')) })
+      ctx.font = `italic 13px ${SERIF}`
+      ctx.fillStyle = '#444'
+      ctx.textAlign = 'left'
+      ctx.fillText('Los Santos Police Department — Mission Row', gauche, haut + bh - 14)
+      ctx.textAlign = 'right'
+      ctx.fillText(`Dossier ${numeroCase} · feuillet ${page} / ${total}`, droite, haut + bh - 14)
+      ctx.textAlign = 'left'
+      ctx.fillStyle = '#000'
+
+      const png = canvas.toDataURL('image/png')
+      pages.push({ dataUrl: png, blob: dataUrlVersBlob(png) })
       page++
       if (page > 12) break
     }
@@ -526,4 +571,84 @@ function dataUrlVersBlob(dataUrl: string): Blob {
   const buffer = new Uint8Array(binaire.length)
   for (let k = 0; k < binaire.length; k++) buffer[k] = binaire.charCodeAt(k)
   return new Blob([buffer], { type: entete.includes('png') ? 'image/png' : 'image/jpeg' })
+}
+
+
+/** Le même rapport en texte, prêt à coller dans un salon Discord. */
+export function texteRapportNego(n: Negociation, settings: Settings, numeroCase: string): string {
+  const lieu = n.lieu.trim() || n.typeLieu || 'un établissement'
+  const grade = settings.grade?.trim() || 'Officer'
+  const nom = `${settings.prenom?.trim() ?? ''} ${settings.nom?.trim() ?? ''}`.trim() || settings.nomAgent || '—'
+  const l: string[] = []
+
+  l.push('**LOS SANTOS POLICE DEPARTMENT — MISSION ROW**')
+  l.push(`**RAPPORT DE NÉGOCIATION** · Dossier ${numeroCase} · ${dateFr(n.date)} à ${heureFr(n.heure)}`)
+  l.push(`Rédacteur : ${grade} ${nom}${settings.specialisation?.trim() ? ` — ${settings.specialisation.trim()}` : ''}`)
+  l.push('')
+  l.push(`Ce jour, nous intervenons sur une prise d'otages à ${lieu}.`)
+  l.push('')
+
+  l.push('**1. SITUATION INITIALE**')
+  l.push(`- Type d'incident : prise d'otages${n.typeLieu ? ` — ${n.typeLieu}` : ''}`)
+  l.push(`- Braqueurs : ${n.braqueurs ?? '—'} · Otages : ${n.otagesAnnonces ?? n.otages.length}`)
+  l.push(`- Périmètre : ${n.perimetre ? 'mis en place et tenu' : 'non confirmé'}`)
+  const equipe = [n.negociateur && `négociateur ${n.negociateur}`, n.relayeur && `relayeur ${n.relayeur}`].filter(Boolean).join(', ')
+  if (equipe) l.push(`- Équipe : ${equipe}`)
+  if (n.agents.length) l.push(`- Agents présents : ${n.agents.join(', ')}`)
+  if (n.offRadio) l.push('- Négociateur passé en OFF radio, relayeur sur scène.')
+  if (n.vehicules.length) {
+    l.push(
+      `- Véhicules : ${n.vehicules
+        .map((v) => `${v.plaque.trim() || '[plaque non relevée]'}${v.description.trim() ? ` (${v.description.trim()})` : ''}`)
+        .join(' · ')}`
+    )
+  }
+  l.push('')
+
+  l.push('**2. IDENTIFICATION DES OTAGES**')
+  if (n.otages.length === 0) l.push('- Aucun otage identifié.')
+  else {
+    n.otages.forEach((o, k) => {
+      const etat = o.recherche === 'oui' ? 'RECHERCHÉ' : o.recherche === 'non' ? 'non recherché' : 'non vérifié'
+      l.push(`- Otage ${k + 1} : ${o.nom.trim() || '[identité non relevée]'} — ${etat}${o.arrete ? ' → arrestation après le braquage' : ''}`)
+      if (o.note.trim()) l.push(`  ${o.note.trim()}`)
+    })
+  }
+  l.push('')
+
+  l.push('**3. DÉROULEMENT DE LA NÉGOCIATION**')
+  if (n.echanges.length === 0) l.push('- Aucune revendication accordée.')
+  else {
+    for (const e of n.echanges) {
+      l.push(`- ${e.revendication.trim() || '[non précisée]'} → ${e.contrepartie.trim() || 'contrepartie non précisée'}`)
+    }
+  }
+  if (n.demandesAtypiques.trim()) l.push(`- Demande atypique transmise aux hauts gradés : ${n.demandesAtypiques.trim()}`)
+  l.push(
+    `- Armes utilisées par les forces de l'ordre : ${
+      n.armeUtilisee
+        ? `oui${n.armeMotifs.length ? ` — ${n.armeMotifs.join(', ')}` : ''}${n.armeDetail.trim() ? `. ${n.armeDetail.trim()}` : ''}`
+        : 'non'
+    }`
+  )
+  if (n.deroulement.trim()) {
+    l.push('')
+    for (const ligne of n.deroulement.trim().split('\n')) if (ligne.trim()) l.push(ligne.trim())
+  }
+  l.push('')
+
+  l.push('**4. FIN DE L\'OPÉRATION**')
+  l.push(`- Résultat : ${labelFin(n.finType, n.finArretes)}`)
+  const arretes = n.finType === 'arretes-tous' ? (n.braqueurs ?? 0) : n.finType === 'arretes-partiel' ? (n.finArretes ?? 0) : 0
+  l.push(`- ${arretes} individu(s) arrêté(s) · ${Math.max(0, (n.braqueurs ?? 0) - arretes)} en fuite`)
+  const otagesArretes = n.otages.filter((o) => o.arrete).length
+  if (otagesArretes) l.push(`- ${otagesArretes} otage(s) recherché(s) interpellé(s) après le braquage`)
+  l.push(`- ${n.poursuite ? 'Course-poursuite engagée à la sortie' : 'Aucune course-poursuite'}`)
+  if (n.finDetail.trim()) for (const ligne of n.finDetail.trim().split('\n')) if (ligne.trim()) l.push(`- ${ligne.trim()}`)
+  l.push('')
+
+  l.push('**5. RÉSUMÉ**')
+  l.push(n.resume.trim() || resumeAuto(n))
+
+  return l.join('\n')
 }

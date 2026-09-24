@@ -17,11 +17,12 @@ import type { FinNego, Negociation } from '@shared/negociation'
 import { BRAQUAGES, MOTIFS_ARME, REVENDICATIONS } from '@shared/negociation'
 import type { YesNo } from '@shared/types'
 import { negociationTitre, useStore } from '../store'
-import { genererRapportNego, resumeAuto, type PageRapport } from '../rapport-officiel'
+import { genererRapportNego, resumeAuto, texteRapportNego, type PageRapport } from '../rapport-officiel'
 import { PHRASES_LIEU } from '../data/phrases'
 import { dateFr, heureFr } from '../lib/format'
 import { Badge, ChipsInput, ConfirmButton, Empty, Field, PageHeader, Panel, PhrasesRapides, Segmented, TextArea, TextInput, Toggle } from '../components/ui'
 import { ScreenSlot } from '../components/ScreenSlot'
+import { api } from '../api'
 
 const nombre = (v: string): number | null => {
   const n = Number(v.replace(/\D/g, ''))
@@ -42,6 +43,7 @@ export function NegociationPage({ id }: { id: string }) {
   const updateSettings = useStore((s) => s.updateSettings)
   const toast = useStore((s) => s.toast)
   const [pages, setPages] = useState<PageRapport[] | null>(null)
+  const [texte, setTexte] = useState('')
   const [busy, setBusy] = useState(false)
 
   if (!n) return <Empty icon={Handshake} title="Négociation introuvable" />
@@ -59,6 +61,7 @@ export function NegociationPage({ id }: { id: string }) {
       }
       const out = await genererRapportNego(n, settings, numero)
       setPages(out)
+      setTexte(texteRapportNego(n, settings, numero))
       toast('ok', out.length > 1 ? `${out.length} pages générées` : 'Rapport généré')
     } catch (err) {
       toast('error', err instanceof Error ? err.message : 'Génération impossible')
@@ -464,13 +467,24 @@ export function NegociationPage({ id }: { id: string }) {
         </button>
       </div>
 
-      {pages && <RapportGenere pages={pages} nom={negociationTitre(n)} />}
+      {pages && <RapportGenere pages={pages} nom={negociationTitre(n)} texte={texte} onTexte={setTexte} />}
     </div>
   )
 }
 
-function RapportGenere({ pages, nom }: { pages: PageRapport[]; nom: string }) {
+function RapportGenere({
+  pages,
+  nom,
+  texte,
+  onTexte
+}: {
+  pages: PageRapport[]
+  nom: string
+  texte: string
+  onTexte: (v: string) => void
+}) {
   const toast = useStore((s) => s.toast)
+  const trop = texte.length > 2000
   const base = nom.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-').toLowerCase() || 'negociation'
 
   function telecharger(p: PageRapport, k: number) {
@@ -478,6 +492,15 @@ function RapportGenere({ pages, nom }: { pages: PageRapport[]; nom: string }) {
     a.href = p.dataUrl
     a.download = `rapport-${base}-page-${k + 1}.png`
     a.click()
+  }
+
+  async function copierTexte() {
+    try {
+      await api.copyText(texte)
+      toast('ok', 'Rapport copié, colle-le dans Discord.')
+    } catch {
+      toast('error', 'Copie refusée par le navigateur.')
+    }
   }
 
   async function copier(p: PageRapport) {
@@ -500,6 +523,19 @@ function RapportGenere({ pages, nom }: { pages: PageRapport[]; nom: string }) {
         </button>
       }
     >
+      <div className="rapport-texte">
+        <div className="rapport-texte-head">
+          <span className="eyebrow">À coller dans le salon Discord</span>
+          <span className={`muted small ${trop ? 'c-amber' : ''}`}>
+            {texte.length} caractères{trop ? ' · Discord en accepte 2000, coupe en deux messages' : ''}
+          </span>
+          <button type="button" className="btn btn-primary" onClick={() => void copierTexte()}>
+            <ClipboardCopy size={15} /> Copier le texte
+          </button>
+        </div>
+        <TextArea value={texte} onChange={onTexte} rows={12} />
+      </div>
+
       <div className="rapport-pages">
         {pages.map((p, k) => (
           <figure key={k}>

@@ -3385,3 +3385,23 @@ kbd {
 .guide-detail > :last-child {
   margin-bottom: 0;
 }
+
+.rapport-texte {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.rapport-texte-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.rapport-texte-head .eyebrow {
+  flex-grow: 1;
+}
+.rapport-texte .textarea {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.6;
+}
