@@ -3,7 +3,6 @@ import { LogIn, ShieldCheck, UserPlus } from 'lucide-react'
 import { api } from '../api'
 import { useAuth } from '../auth'
 import { setMatriculeInscription } from '../store'
-import { Badge3D } from '../components/Sidebar'
 import { Field, TextInput } from '../components/ui'
 
 /** Code d'inscription passé dans le lien : /?code=xxxx */
@@ -58,7 +57,7 @@ export function LoginPage(props: { mode: 'login' | 'setup' }) {
     <div className="login">
       <form className="login-card" onSubmit={submit}>
         <div className="login-brand">
-          <Badge3D />
+          <img src="/lspdlogo.webp" alt="Écusson du Los Santos Police Department" width="76" height="76" />
           <div>
             <strong>L.S.P.D Procédures</strong>
             <span>OUTIL DE PROCÉDURE</span>

@@ -3,20 +3,6 @@ import type { LucideIcon } from 'lucide-react'
 import { type Route, interventionTitle, negociationTitre, suspectName, useSaveStatus, useStore } from '../store'
 import { useAuth } from '../auth'
 
-export function Badge3D() {
-  return (
-    <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true">
-      <path d="M20 3l14 5v10c0 9-6 16-14 19C12 34 6 27 6 18V8l14-5z" fill="#1a2440" stroke="#3a6ee8" strokeWidth="1.6" />
-      <path
-        d="M20 11l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4-3.9-3.8 5.4-.8z"
-        fill="#c9d6f5"
-        stroke="#8fb1ff"
-        strokeWidth=".6"
-      />
-    </svg>
-  )
-}
-
 function NavItem(props: { icon: LucideIcon; label: string; active: boolean; onClick: () => void; count?: number }) {
   const Icon = props.icon
   return (
@@ -47,11 +33,9 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="brand">
-        <Badge3D />
-        <div>
-          <strong>L.S.P.D Procédures</strong>
-          <span>OUTIL DE PROCÉDURE</span>
-        </div>
+        <img className="brand-logo" src="/lspdlogo.webp" alt="Écusson du Los Santos Police Department" width="68" height="68" />
+        <strong>L.S.P.D Procédures</strong>
+        <span>MISSION ROW</span>
       </div>
 
       <nav className="nav">

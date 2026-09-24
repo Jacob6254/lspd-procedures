@@ -1,8 +1,8 @@
-import { AlertTriangle, BookOpen, CheckSquare, Plane, ScrollText, ShieldCheck, Target, Truck } from 'lucide-react'
+import { AlertTriangle, BookOpen, CheckSquare, ChevronRight, Plane, ScrollText, ShieldCheck, Target, Truck } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { BlocGuide } from '../data/guides'
 import { guideParId } from '../data/guides'
-import { Empty, PageHeader, Panel } from '../components/ui'
+import { Empty, PageHeader } from '../components/ui'
 
 const ICONES: Record<string, LucideIcon> = {
   procedure: ScrollText,
@@ -13,10 +13,20 @@ const ICONES: Record<string, LucideIcon> = {
   ppa: Target
 }
 
-function Contenu({ bloc }: { bloc: BlocGuide }) {
+/** La ligne qu'on lit sans ouvrir : l'essentiel du bloc en une phrase. */
+function resume(bloc: BlocGuide): string {
+  if (bloc.texte) return bloc.texte
+  if (bloc.points?.length) return bloc.points[0]
+  if (bloc.check?.length) return bloc.check.join(' · ')
+  if (bloc.alerte) return bloc.alerte
+  return ''
+}
+
+function Detail({ bloc }: { bloc: BlocGuide }) {
+  const sautTexte = bloc.texte && (bloc.points?.length || bloc.check?.length || bloc.table || bloc.exemple)
   return (
-    <>
-      {bloc.texte && <p className="guide-texte">{bloc.texte}</p>}
+    <div className="guide-detail">
+      {sautTexte && <p className="guide-texte">{bloc.texte}</p>}
       {bloc.points && (
         <ul className="guide-points">
           {bloc.points.map((p) => (
@@ -59,7 +69,24 @@ function Contenu({ bloc }: { bloc: BlocGuide }) {
           <AlertTriangle size={15} /> {bloc.alerte}
         </p>
       )}
-    </>
+    </div>
+  )
+}
+
+function Ligne({ bloc, numero, ouvert }: { bloc: BlocGuide; numero?: number; ouvert?: boolean }) {
+  return (
+    <details className="guide-ligne" open={ouvert}>
+      <summary>
+        {numero !== undefined ? <span className="guide-num">{numero}</span> : <span className="guide-puce" />}
+        <span className="guide-ligne-texte">
+          <strong>{bloc.titre}</strong>
+          <small>{resume(bloc)}</small>
+        </span>
+        {bloc.alerte && <AlertTriangle size={14} className="c-red" />}
+        <ChevronRight size={15} className="guide-chevron" />
+      </summary>
+      <Detail bloc={bloc} />
+    </details>
   )
 }
 
@@ -69,33 +96,34 @@ export function GuidePage({ id }: { id: string }) {
   const Icone = ICONES[guide.id] ?? BookOpen
 
   return (
-    <div className="page">
+    <div className="page page-etroite">
       <PageHeader icon={Icone} title={guide.titre} subtitle={guide.sousTitre} />
 
       {guide.rappel && (
         <div className="guide-rappel">
-          <ShieldCheck size={20} />
+          <ShieldCheck size={18} />
           <strong>{guide.rappel}</strong>
         </div>
       )}
 
-      <div className="etapes-nego">
+      <div className="guide-liste">
         {guide.etapes.map((e, n) => (
-          <section className="etape-nego" key={e.titre}>
-            <header>
-              <span className="etape-num">{n + 1}</span>
-              <h3>{e.titre}</h3>
-            </header>
-            <Contenu bloc={e} />
-          </section>
+          <Ligne bloc={e} numero={n + 1} key={e.titre} ouvert={n === 0} />
         ))}
       </div>
 
-      {guide.sections?.map((s) => (
-        <Panel title={s.titre} key={s.titre}>
-          <Contenu bloc={s} />
-        </Panel>
-      ))}
+      {guide.sections && guide.sections.length > 0 && (
+        <>
+          <div className="section-title">
+            <BookOpen size={15} /> À garder en tête
+          </div>
+          <div className="guide-liste">
+            {guide.sections.map((s) => (
+              <Ligne bloc={s} key={s.titre} />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }

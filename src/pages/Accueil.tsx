@@ -1,6 +1,5 @@
 import { Clock3, Crosshair, FileText, Handshake, Home, Plus, UserRound } from 'lucide-react'
 import { interventionTitle, suspectName, useStore } from '../store'
-import { Badge3D } from '../components/Sidebar'
 import { Empty, PageHeader } from '../components/ui'
 import { dateFr, heureFr } from '../lib/format'
 import type { Intervention } from '@shared/types'
@@ -62,7 +61,7 @@ export function AccueilPage() {
           </button>
         </div>
         <div className="hero-badge">
-          <Badge3D />
+          <img src="/lspdlogo.webp" alt="" width="132" height="132" />
         </div>
       </section>
 

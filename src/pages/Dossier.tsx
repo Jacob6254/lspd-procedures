@@ -24,7 +24,7 @@ import {
 import type { Intervention, Settings, Suspect } from '@shared/types'
 import { type StepKey, interventionImages, interventionTitle, suspectName, useStore } from '../store'
 import { COMPORTEMENTS, COOPERATION, REPORT_LIMIT, SAISIE_GROUPS, type Check, checkSuspect, generateReport, stepState } from '../report'
-import { INFRACTIONS, accusationSuggestions } from '../data/infractions'
+import { CATEGORIES, INFRACTIONS, accusationSuggestions, gavFr, montantFr, totalPeine } from '../data/infractions'
 import { CHECKLIST, CHECKLIST_TOTAL } from '../data/checklist'
 import { COULEURS, TYPES_VEHICULE, decrireVehicule } from '../data/vehicules'
 import { MOYENS_INTERPELLATION } from '../data/interpellation'
@@ -836,13 +836,9 @@ function RapportStep({ i, s, set, checks }: StepProps & { checks: Check[] }) {
   )
 }
 
-const TON_CATEGORIE: Record<string, 'grey' | 'amber' | 'red' | 'purple'> = {
-  'Délit mineur': 'grey',
-  'Délit moyen': 'amber',
-  'Délit majeur': 'red',
-  'Délit aggravé': 'red',
-  Crime: 'purple'
-}
+const TON_CATEGORIE: Record<string, 'grey' | 'amber' | 'red' | 'purple' | 'blue' | 'green'> = Object.fromEntries(
+  CATEGORIES.map((c) => [c.nom, c.ton])
+)
 
 /** Fiche de fin de procédure, dans le style de la fiche citoyen du MDT. */
 function FicheStep({ i, s, set }: StepProps) {
@@ -854,6 +850,7 @@ function FicheStep({ i, s, set }: StepProps) {
   const screens = [...s.identite, ...s.fouilleScreens]
   const age = s.naissance ? Math.floor((Date.now() - new Date(s.naissance).getTime()) / 31_557_600_000) : null
   const groupes = SAISIE_GROUPS.map((g) => ({ ...g, items: s.saisies.filter((x) => x.type === g.type) })).filter((g) => g.items.length)
+  const peine = totalPeine(s.accusations)
   const coop = COOPERATION.find((c) => c.key === s.cooperation)
 
   return (
@@ -905,14 +902,24 @@ function FicheStep({ i, s, set }: StepProps) {
           ) : (
             <div className="fiche-list">
               {s.accusations.map((a) => {
-                const cat = INFRACTIONS.find((x) => x.label.toLowerCase() === a.toLowerCase())?.categorie
+                const inf = INFRACTIONS.find((x) => x.label.toLowerCase() === a.trim().toLowerCase())
                 return (
                   <div className="fiche-item" key={a}>
                     <span>{a}</span>
-                    {cat && <Badge tone={TON_CATEGORIE[cat]}>{cat}</Badge>}
+                    {inf && <small className="peine">{montantFr(inf.amende)} · {gavFr(inf.gav)}</small>}
+                    {inf && <Badge tone={TON_CATEGORIE[inf.categorie]}>{inf.categorie}</Badge>}
                   </div>
                 )
               })}
+              {peine.amende > 0 && (
+                <div className="fiche-item fiche-total">
+                  <span>Total</span>
+                  <small className="peine">
+                    {montantFr(peine.amende)} · {gavFr(peine.gav)}
+                    {peine.plafonne ? ' (plafonné à 25 min)' : ''}
+                  </small>
+                </div>
+              )}
               {s.outrage && (
                 <div className="fiche-phrase">
                   Outrage : « {s.outragePhrase.trim() || '[phrase exacte manquante]'} »
