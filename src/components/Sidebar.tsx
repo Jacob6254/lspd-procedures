@@ -1,4 +1,4 @@
-import { BookOpen, Crosshair, Eye, FileText, GraduationCap, Handshake, Home, LogOut, Plus, Radio, Settings } from 'lucide-react'
+import { BookOpen, Crosshair, Eye, FileText, Handshake, Home, LogOut, Plus, Radio, Settings } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { type Route, interventionTitle, negociationTitre, suspectName, useSaveStatus, useStore } from '../store'
 import { useAuth } from '../auth'
@@ -103,14 +103,10 @@ export function Sidebar() {
         <NavItem icon={Handshake} label="Mes négociations" active={is('negociations')} onClick={() => go({ page: 'negociations' })} />
         <NavItem icon={BookOpen} label="Comment négocier" active={is('nego-guide')} onClick={() => go({ page: 'nego-guide' })} />
 
-        <div className="nav-section">Formation</div>
-        <NavItem icon={GraduationCap} label="Formation casier rookie" active={is('formation')} onClick={() => go({ page: 'formation' })} />
-
         {me?.role === 'admin' && (
           <>
             <div className="nav-section">Supervision</div>
             <NavItem icon={Eye} label="Procédures des agents" active={is('supervision')} onClick={() => go({ page: 'supervision' })} />
-            <NavItem icon={GraduationCap} label="Gestion formation" active={is('formation-admin')} onClick={() => go({ page: 'formation-admin' })} />
           </>
         )}
 

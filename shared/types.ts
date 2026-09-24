@@ -144,7 +144,6 @@ export interface Settings {
   prochainCase?: number
 }
 
-import type { FormationResultat } from './formation'
 import type { Negociation } from './negociation'
 
 export interface Db {
@@ -157,8 +156,6 @@ export interface Db {
   /** Ancienne boîte de screens à trier, gardée pour les données déjà enregistrées. */
   inbox?: ImageRef[]
   learned: { drogues: string[]; autres: string[]; accusations: string[] }
-  /** Résultats des exercices de formation. */
-  formations?: FormationResultat[]
 }
 
 export interface Me {
@@ -197,6 +194,4 @@ export interface AgentSummary extends Me {
   screens: number
   majA: string | null
   notesNonLues: number
-  formations: number
-  formationsValidees: number
 }

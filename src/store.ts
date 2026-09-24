@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import type { Db, ImageRef, Intervention, Settings, Suspect } from '@shared/types'
 import type { NegoEchange, NegoOtage, NegoVehicule, Negociation } from '@shared/negociation'
 import { nowHm, todayIso, uid } from './lib/format'
-import type { FormationResultat } from '@shared/formation'
 import { ApiError, api } from './api'
 
 const deleteImageFile = (file: string) => void api.deleteImage(file).catch(() => undefined)
@@ -19,8 +18,6 @@ export type Route =
   | { page: 'armes' }
   | { page: 'radio' }
   | { page: 'supervision' }
-  | { page: 'formation' }
-  | { page: 'formation-admin' }
   | { page: 'negociations' }
   | { page: 'negociation'; id: string }
   | { page: 'nego-guide' }
@@ -207,7 +204,6 @@ interface State {
   addEchange(negoId: string): void
   removeEchange(negoId: string, echangeId: string): void
   updateSettings(patch: Partial<Settings>): void
-  ajouterResultatFormation(resultat: FormationResultat): void
   learn(kind: keyof Db['learned'], values: string[]): void
   setCaptureTarget(target: CaptureTarget | null): void
   toast(kind: Toast['kind'], text: string): void
@@ -470,10 +466,6 @@ export const useStore = create<State>((set, get) => ({
 
   updateSettings(patch) {
     set((st) => ({ db: { ...st.db, settings: { ...st.db.settings, ...patch } } }))
-  },
-
-  ajouterResultatFormation(resultat) {
-    set((st) => ({ db: { ...st.db, formations: [...(st.db.formations ?? []), resultat].slice(-50) } }))
   },
 
   learn(kind, values) {
