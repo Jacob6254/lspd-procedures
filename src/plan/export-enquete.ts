@@ -1,5 +1,5 @@
 import type { Enquete, Fiche } from '@shared/enquete'
-import { compteParType, defFiche, pivot, relationsDe, typeLien } from '@shared/enquete'
+import { compteParType, defFiche, pivot, positionsLibelles, relationsDe, typeLien } from '@shared/enquete'
 import { couleurPlan } from '@shared/plan'
 import { dateFr } from '../lib/format'
 import { chargerImage, coinsRonds, couperTexte, sortie, type Sortie } from './dessin'
@@ -37,38 +37,50 @@ export async function exporterTableau(enq: Enquete, urlImage: (file: string) => 
     ctx.stroke()
   }
 
-  // Les fils passent sous les fiches, mais leurs libellés se posent par-dessus :
-  // c'est ce qui rend le tableau lisible six mois plus tard.
+  // Les ficelles partent des punaises et passent sous les fiches ; leurs noms
+  // se posent par-dessus, c'est ce qui rend le tableau lisible plus tard.
+  const punaise = (f: Fiche) => ({ x: f.x * L, y: f.y * H - hauteurFiche(ctx, f, L) / 2 + defFiche(f.type).largeur * L * 0.07 })
+  const visibles = enq.liens
+    .map((l) => {
+      const a = enq.fiches.find((f) => f.id === l.de)
+      const b = enq.fiches.find((f) => f.id === l.vers)
+      return a && b ? { l, p1: punaise(a), p2: punaise(b) } : null
+    })
+    .filter((v): v is { l: (typeof enq.liens)[number]; p1: { x: number; y: number }; p2: { x: number; y: number } } => v !== null)
+
+  ctx.font = '600 17px Archivo, sans-serif'
+  const places = positionsLibelles(
+    visibles.map(({ l, p1, p2 }) => {
+      const creux = Math.hypot(p2.x - p1.x, p2.y - p1.y) * 0.055
+      const texte = l.libelle.trim() || 'à nommer'
+      return { x1: p1.x, y1: p1.y + creux, x2: p2.x, y2: p2.y + creux, larg: ctx.measureText(texte).width + 22, haut: 38 }
+    })
+  )
+
   const libelles: (() => void)[] = []
-  for (const l of enq.liens) {
-    const a = enq.fiches.find((f) => f.id === l.de)
-    const b = enq.fiches.find((f) => f.id === l.vers)
-    if (!a || !b) continue
-    const t = typeLien(l.type)
-    const c = couleurPlan(t.couleur)
-    const x1 = a.x * L
-    const y1 = a.y * H
-    const x2 = b.x * L
-    const y2 = b.y * H
-
-    ctx.strokeStyle = 'rgba(6, 9, 16, 0.7)'
-    ctx.lineWidth = 7
-    ctx.beginPath()
-    ctx.moveTo(x1, y1)
-    ctx.lineTo(x2, y2)
-    ctx.stroke()
+  visibles.forEach(({ l, p1, p2 }, i) => {
+    const c = couleurPlan(typeLien(l.type).couleur)
+    const creux = Math.hypot(p2.x - p1.x, p2.y - p1.y) * 0.11
+    const trace = () => {
+      ctx.beginPath()
+      ctx.moveTo(p1.x, p1.y)
+      ctx.quadraticCurveTo((p1.x + p2.x) / 2, (p1.y + p2.y) / 2 + creux, p2.x, p2.y)
+      ctx.stroke()
+    }
+    ctx.lineCap = 'round'
+    ctx.strokeStyle = 'rgba(6, 9, 16, 0.6)'
+    ctx.lineWidth = 6
+    trace()
     ctx.strokeStyle = c
-    ctx.lineWidth = 3
-    ctx.beginPath()
-    ctx.moveTo(x1, y1)
-    ctx.lineTo(x2, y2)
-    ctx.stroke()
+    ctx.lineWidth = 2.6
+    trace()
 
-    const libelle = l.libelle.trim() || t.label.toLowerCase()
-    const mx = (x1 + x2) / 2
-    const my = (y1 + y2) / 2
+    const sansNom = !l.libelle.trim()
+    const libelle = sansNom ? 'à nommer' : l.libelle.trim()
+    const mx = places[i].x
+    const my = places[i].y
     libelles.push(() => {
-      ctx.font = '600 17px Archivo, sans-serif'
+      ctx.font = `${sansNom ? 'italic ' : ''}600 17px Archivo, sans-serif`
       const w = ctx.measureText(libelle).width + 20
       ctx.fillStyle = 'rgba(8, 11, 20, 0.95)'
       coinsRonds(ctx, mx - w / 2, my - 15, w, 30, 6)
@@ -76,12 +88,12 @@ export async function exporterTableau(enq: Enquete, urlImage: (file: string) => 
       ctx.strokeStyle = c
       ctx.lineWidth = 1.5
       ctx.stroke()
-      ctx.fillStyle = '#e2e8f0'
+      ctx.fillStyle = sansNom ? '#f0a327' : '#e2e8f0'
       ctx.textAlign = 'center'
       ctx.fillText(libelle, mx, my + 6)
       ctx.textAlign = 'left'
     })
-  }
+  })
 
   // Les images des fiches, chargées avant la mise en page.
   const photos = new Map<string, HTMLImageElement>()
@@ -120,20 +132,28 @@ export async function exporterTableau(enq: Enquete, urlImage: (file: string) => 
   return sortie(canvas)
 }
 
-function dessinerFiche(ctx: CanvasRenderingContext2D, f: Fiche, L: number, H: number, photos: Map<string, HTMLImageElement>): void {
+/** Ce que mesure une fiche : sert au dessin et à savoir où planter la punaise. */
+function mesures(ctx: CanvasRenderingContext2D, f: Fiche, L: number, avecPhoto: boolean) {
   const def = defFiche(f.type)
   const w = def.largeur * L
   const marge = w * 0.07
-  const img = f.image ? photos.get(f.image) : null
-  const hPhoto = img ? w * 0.62 : 0
-
+  const hPhoto = avecPhoto ? w * 0.62 : 0
   ctx.font = `700 ${Math.round(w * 0.095)}px Archivo, sans-serif`
   const titre = couperTexte(ctx, f.titre.trim() || def.label, w - marge * 2)
   ctx.font = `${Math.round(w * 0.078)}px Archivo, sans-serif`
-  const texte = f.texte.trim() ? couperTexte(ctx, f.texte.trim(), w - marge * 2).slice(0, 6) : []
+  const texte = f.texte.trim() ? couperTexte(ctx, f.texte.trim(), w - marge * 2).slice(0, 3) : []
   const tags = f.role || f.statut ? Math.round(w * 0.12) : 0
-
   const h = hPhoto + marge * 2 + titre.length * w * 0.115 + tags + texte.length * w * 0.098 + (f.date ? w * 0.1 : 0)
+  return { def, w, marge, hPhoto, titre, texte, tags, h }
+}
+
+function hauteurFiche(ctx: CanvasRenderingContext2D, f: Fiche, L: number): number {
+  return mesures(ctx, f, L, !!f.image).h
+}
+
+function dessinerFiche(ctx: CanvasRenderingContext2D, f: Fiche, L: number, H: number, photos: Map<string, HTMLImageElement>): void {
+  const img = f.image ? photos.get(f.image) : null
+  const { w, marge, hPhoto, titre, texte, tags, h } = mesures(ctx, f, L, !!img)
   const x = f.x * L - w / 2
   const y = f.y * H - h / 2
 

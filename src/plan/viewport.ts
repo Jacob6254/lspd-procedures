@@ -78,7 +78,13 @@ export function usePlan(ratio: number): CtrlPlan {
     mesurer()
     const ro = new ResizeObserver(mesurer)
     ro.observe(noeud)
-    return () => ro.disconnect()
+    // Filet de sécurité : si le cadre naît dans une fenêtre de largeur nulle
+    // (onglet en arrière-plan, panneau replié), l'observateur peut ne rien voir.
+    window.addEventListener('resize', mesurer)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', mesurer)
+    }
   }, [noeud])
 
   // Premier affichage : le plan entier, centré. Ensuite, quand la fenêtre

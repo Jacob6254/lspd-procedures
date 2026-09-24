@@ -18,12 +18,13 @@ import {
   Trash,
   UserRound,
   X,
+  Waypoints,
   ZoomIn,
   ZoomOut
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Enquete, Fiche, FicheType, Lien } from '@shared/enquete'
-import { FICHES, ROLES_GANG, STATUTS_FICHE, TYPES_LIEN, defFiche, typeLien } from '@shared/enquete'
+import { FICHES, ROLES_GANG, STATUTS_FICHE, TYPES_LIEN, defFiche, positionsLibelles, rangerTableau, typeLien } from '@shared/enquete'
 import { couleurPlan } from '@shared/plan'
 import type { Suspect } from '@shared/types'
 import { dateFr, uid } from '../lib/format'
@@ -55,12 +56,15 @@ export function EnquetePage({ id }: { id: string }) {
 
   const [outil, setOutil] = useState<Outil>('main')
   const [typeFiche, setTypeFiche] = useState<FicheType>('suspect')
+  const [typeFil, setTypeFil] = useState('hierarchie')
   const [choisie, setChoisie] = useState<string | null>(null)
   const [lienChoisi, setLienChoisi] = useState<string | null>(null)
   const [depart, setDepart] = useState<string | null>(null)
   const [importOuvert, setImport] = useState(false)
   const [sortieExport, setSortieExport] = useState<{ image: Sortie; texte: string } | null>(null)
   const [occupe, setOccupe] = useState(false)
+  // Hauteur réelle de chaque fiche : le fil doit partir de la punaise, en haut.
+  const [hauteurs, setHauteurs] = useState<Record<string, number>>({})
 
   const ctrl = usePlan(RATIO)
   const lecture = !mien
@@ -145,7 +149,7 @@ export function EnquetePage({ id }: { id: string }) {
         setDepart(null)
         return
       }
-      const l: Lien = { id: uid(), de: depart, vers: f.id, type: 'frequentation', libelle: '' }
+      const l: Lien = { id: uid(), de: depart, vers: f.id, type: typeFil, libelle: '' }
       maj((x) => ({ ...x, liens: [...x.liens, l] }))
       setDepart(null)
       setLienChoisi(l.id)
@@ -171,6 +175,11 @@ export function EnquetePage({ id }: { id: string }) {
 
   const W = ctrl.monde.w
   const H = ctrl.monde.h
+  /** La punaise d'une fiche : le point d'où part la ficelle. */
+  const punaise = (f: Fiche) => ({
+    x: f.x * W,
+    y: f.y * H - (hauteurs[f.id] ?? 92) / 2 + Math.max(7, defFiche(f.type).largeur * W * 0.088) * 0.7
+  })
   const fiche = choisie ? (enq.fiches.find((f) => f.id === choisie) ?? null) : null
   const lien = lienChoisi ? (enq.liens.find((l) => l.id === lienChoisi) ?? null) : null
 
@@ -236,6 +245,15 @@ export function EnquetePage({ id }: { id: string }) {
                 <Link2 size={16} />
                 <span>Tirer un fil</span>
               </button>
+              <button
+                type="button"
+                className="rail-outil"
+                title="Remet la tête du réseau au centre et répartit les fiches autour"
+                onClick={() => maj((x) => ({ ...x, fiches: rangerTableau(x) }))}
+              >
+                <Waypoints size={16} />
+                <span>Ranger le tableau</span>
+              </button>
             </div>
 
             <div className="rail-titre">Épingler</div>
@@ -264,17 +282,28 @@ export function EnquetePage({ id }: { id: string }) {
 
             {outil === 'lien' && (
               <p className="rail-aide">
-                {depart ? 'Clique la deuxième fiche pour relier les deux.' : 'Clique la première fiche du fil.'}
+                {depart ? 'Clique la deuxième fiche pour relier les deux.' : 'Clique la première fiche du fil.'} Tu pourras le nommer
+                aussitôt après.
               </p>
             )}
             {outil === 'fiche' && <p className="rail-aide">Clique sur le tableau pour épingler la fiche.</p>}
 
-            <div className="rail-titre">Types de fil</div>
+            <div className="rail-titre">Nature du fil</div>
             <div className="rail-liens">
               {TYPES_LIEN.map((t) => (
-                <span key={t.id}>
+                <button
+                  key={t.id}
+                  type="button"
+                  className={typeFil === t.id ? 'actif' : ''}
+                  title={`Par exemple : ${t.exemples.join(', ')}`}
+                  onClick={() => {
+                    setTypeFil(t.id)
+                    setOutil('lien')
+                    setDepart(null)
+                  }}
+                >
                   <i style={{ background: couleurPlan(t.couleur) }} /> {t.label}
-                </span>
+                </button>
               ))}
             </div>
           </aside>
@@ -292,12 +321,11 @@ export function EnquetePage({ id }: { id: string }) {
                 const a = enq.fiches.find((f) => f.id === l.de)
                 const b = enq.fiches.find((f) => f.id === l.vers)
                 if (!a || !b) return null
-                const t = typeLien(l.type)
-                const c = couleurPlan(t.couleur)
-                const x1 = a.x * W
-                const y1 = a.y * H
-                const x2 = b.x * W
-                const y2 = b.y * H
+                const c = couleurPlan(typeLien(l.type).couleur)
+                const p1 = punaise(a)
+                const p2 = punaise(b)
+                const creux = Math.hypot(p2.x - p1.x, p2.y - p1.y) * 0.11
+                const d = `M ${p1.x} ${p1.y} Q ${(p1.x + p2.x) / 2} ${(p1.y + p2.y) / 2 + creux} ${p2.x} ${p2.y}`
                 const actif = lienChoisi === l.id
                 return (
                   <g
@@ -309,9 +337,8 @@ export function EnquetePage({ id }: { id: string }) {
                       setChoisie(null)
                     }}
                   >
-                    <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(6,9,16,0.6)" strokeWidth={actif ? 7 : 5} />
-                    <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={c} strokeWidth={actif ? 3 : 2} />
-                    <circle cx={x2} cy={y2} r={4} fill={c} />
+                    <path d={d} fill="none" stroke="rgba(6,9,16,0.55)" strokeWidth={actif ? 6 : 4.5} strokeLinecap="round" />
+                    <path d={d} fill="none" stroke={c} strokeWidth={actif ? 2.6 : 1.8} strokeLinecap="round" />
                   </g>
                 )
               })}
@@ -328,6 +355,7 @@ export function EnquetePage({ id }: { id: string }) {
                 lecture={lecture}
                 srcImage={(file) => (lecture ? posteImgUrl(enq.auteur, file) : imgUrl(file))}
                 onClick={() => clicFiche(f)}
+                onMesure={(h) => setHauteurs((m) => (m[f.id] === h ? m : { ...m, [f.id]: h }))}
                 onDeplacer={(e) =>
                   !lecture && glisser(e, ctrl, f, (p) => maj((x) => ({ ...x, fiches: x.fiches.map((y) => (y.id === f.id ? { ...y, ...p } : y)) })))
                 }
@@ -335,17 +363,38 @@ export function EnquetePage({ id }: { id: string }) {
             ))}
             {/* Les libellés des fils repassent devant les fiches, sinon on ne les lit plus. */}
             <svg className="plan-svg plan-svg-dessus" width={Math.max(1, W)} height={Math.max(1, H)}>
-              {enq.liens.map((l) => {
-                const a = enq.fiches.find((f) => f.id === l.de)
-                const b = enq.fiches.find((f) => f.id === l.vers)
-                if (!a || !b) return null
-                const t = typeLien(l.type)
-                const c = couleurPlan(t.couleur)
-                const mx = ((a.x + b.x) / 2) * W
-                const my = ((a.y + b.y) / 2) * H
-                const libelle = l.libelle.trim() || t.label.toLowerCase()
-                const larg = libelle.length * 6.4 + 16
-                return (
+              {(() => {
+                const visibles = enq.liens
+                  .map((l) => {
+                    const a = enq.fiches.find((f) => f.id === l.de)
+                    const b = enq.fiches.find((f) => f.id === l.vers)
+                    return a && b ? { l, a, b } : null
+                  })
+                  .filter((v): v is { l: Lien; a: Fiche; b: Fiche } => v !== null)
+                const places = positionsLibelles(
+                  visibles.map(({ l, a, b }) => {
+                    const p1 = punaise(a)
+                    const p2 = punaise(b)
+                    const creux = Math.hypot(p2.x - p1.x, p2.y - p1.y) * 0.055
+                    return {
+                      x1: p1.x,
+                      y1: p1.y + creux,
+                      x2: p2.x,
+                      y2: p2.y + creux,
+                      larg: (l.libelle.trim() || 'à nommer').length * 6.4 + 16,
+                      haut: 26
+                    }
+                  })
+                )
+                return visibles.map(({ l }, i) => {
+                  const t = typeLien(l.type)
+                  const c = couleurPlan(t.couleur)
+                  const mx = places[i].x
+                  const my = places[i].y
+                  const sansNom = !l.libelle.trim()
+                  const libelle = sansNom ? 'à nommer' : l.libelle.trim()
+                  const larg = libelle.length * 6.4 + 16
+                  return (
                   <g
                     key={l.id}
                     className="fil"
@@ -365,12 +414,21 @@ export function EnquetePage({ id }: { id: string }) {
                       stroke={c}
                       strokeWidth={lienChoisi === l.id ? 2 : 1}
                     />
-                    <text x={mx} y={my + 4} textAnchor="middle" fontSize={11} fill="#e2e8f0" fontFamily="Archivo, sans-serif">
+                    <text
+                      x={mx}
+                      y={my + 4}
+                      textAnchor="middle"
+                      fontSize={11}
+                      fill={sansNom ? '#f0a327' : '#e2e8f0'}
+                      fontStyle={sansNom ? 'italic' : undefined}
+                      fontFamily="Archivo, sans-serif"
+                    >
                       {libelle}
                     </text>
                   </g>
-                )
-              })}
+                  )
+                })
+              })()}
             </svg>
           </div>
 
@@ -461,7 +519,8 @@ function CarteFiche({
   lecture,
   srcImage,
   onClick,
-  onDeplacer
+  onDeplacer,
+  onMesure
 }: {
   fiche: Fiche
   W: number
@@ -472,10 +531,21 @@ function CarteFiche({
   srcImage: (file: string) => string
   onClick: () => void
   onDeplacer: (e: ReactPointerEvent) => void
+  onMesure: (h: number) => void
 }) {
   const def = defFiche(fiche.type)
   const largeur = def.largeur * W
   const Icone = ICONES[def.icone] ?? StickyNote
+  const boite = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const el = boite.current
+    if (!el) return
+    const dire = () => onMesure(el.offsetHeight)
+    dire()
+    const ro = new ResizeObserver(dire)
+    ro.observe(el)
+    return () => ro.disconnect()
+  })
   const style: CSSProperties = {
     left: fiche.x * W,
     top: fiche.y * H,
@@ -487,6 +557,7 @@ function CarteFiche({
   return (
     <div
       className={`fiche fiche-${fiche.type} ${choisie ? 'choisie' : ''} ${depart ? 'depart' : ''} ${lecture ? 'lecture' : ''}`}
+      ref={boite}
       style={{ ...style, zIndex: choisie || depart ? 3 : undefined }}
       onPointerDown={onDeplacer}
       onClick={(e) => {
@@ -696,8 +767,8 @@ function InspecteurLien({
         </select>
       </Field>
 
-      <Field label="Ce qu'on écrit sur le fil">
-        <TextInput value={lien.libelle} onChange={(v) => onChange({ libelle: v })} placeholder={t.exemples[0]} />
+      <Field label="Ce qu'on écrit sur le fil" hint="C'est ce nom qu'on lira sur le tableau dans six mois.">
+        <TextInput value={lien.libelle} onChange={(v) => onChange({ libelle: v })} placeholder={t.exemples[0]} autoFocus />
       </Field>
 
       <div className="insp-exemples">

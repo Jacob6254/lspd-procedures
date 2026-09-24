@@ -72,15 +72,14 @@ export interface FondCarte {
 }
 
 /**
- * Les fichiers vont dans `public/cartes/`. Tant qu'une image manque, la carte
- * bascule sur le fond de secours dessiné dans le site.
- * Le cadre `ile` se règle une fois par image, dans les réglages de la carte.
+ * Les fichiers sont dans `public/cartes/`. Le cadre `ile` a été relevé sur
+ * chaque image : c'est lui qui fait qu'on passe d'un fond à l'autre sans
+ * qu'un seul marqueur ne bouge. Si on remplace une image, il faut le refaire.
  */
 export const FONDS: FondCarte[] = [
-  { id: 'nuit', nom: 'Nuit', fichier: '/cartes/nuit.webp', ile: { x: 0.11, y: 0.04, w: 0.78, h: 0.94 }, sombre: true },
-  { id: 'blueprint', nom: 'Blueprint', fichier: '/cartes/blueprint.webp', ile: { x: 0.1, y: 0.06, w: 0.8, h: 0.9 }, sombre: true },
-  { id: 'satellite', nom: 'Satellite', fichier: '/cartes/satellite.webp', ile: { x: 0.04, y: 0.03, w: 0.92, h: 0.94 }, sombre: true },
-  { id: 'atlas', nom: 'Atlas', fichier: '/cartes/atlas.webp', ile: { x: 0.05, y: 0.04, w: 0.9, h: 0.92 }, sombre: false }
+  { id: 'nuit', nom: 'Nuit', fichier: '/cartes/nuit.webp', ile: { x: 0.117, y: 0.063, w: 0.771, h: 0.901 }, sombre: true },
+  { id: 'satellite', nom: 'Satellite', fichier: '/cartes/satellite.webp', ile: { x: 0.019, y: 0.06, w: 0.918, h: 0.902 }, sombre: true },
+  { id: 'atlas', nom: 'Atlas', fichier: '/cartes/atlas.webp', ile: { x: 0.071, y: 0.091, w: 0.821, h: 0.857 }, sombre: false }
 ]
 
 export const FOND_DEFAUT = 'nuit'
