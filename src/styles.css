@@ -3074,3 +3074,87 @@ kbd {
   grid-column: 1 / -1;
   margin-top: 16px;
 }
+
+/* ---------- Guides écrits ---------- */
+
+.guide-rappel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.guide-rappel strong {
+  font-family: var(--title);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.guide-texte {
+  margin: 0 0 10px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+.guide-points {
+  margin: 0 0 10px;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+.guide-check {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.guide-check span {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.guide-check svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--green);
+}
+.guide-exemple {
+  margin: 0 0 10px;
+  padding: 12px 14px;
+  border-radius: 9px;
+  border: 1px solid var(--border-2);
+  background: #0c0c0e;
+  color: var(--text-2);
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+.guide-alerte {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--red-border);
+  background: var(--red-soft);
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+.guide-alerte svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--red);
+}
+.etape-nego .memo-table {
+  margin-bottom: 10px;
+}

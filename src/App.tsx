@@ -19,6 +19,7 @@ import { hasUnsavedChanges } from './store'
 import { NegociationsPage } from './pages/Negociations'
 import { NegociationPage } from './pages/Negociation'
 import { NegoGuidePage } from './pages/NegoGuide'
+import { GuidePage } from './pages/Guide'
 import { ReglagesPage } from './pages/Reglages'
 import { LoginPage } from './pages/Login'
 
@@ -91,6 +92,7 @@ function Workspace() {
         {route.page === 'negociations' && <NegociationsPage />}
         {route.page === 'negociation' && <NegociationPage key={route.id} id={route.id} />}
         {route.page === 'nego-guide' && <NegoGuidePage />}
+        {route.page === 'guide' && <GuidePage key={route.id} id={route.id} />}
         {route.page === 'reglages' && <ReglagesPage />}
       </main>
     </div>

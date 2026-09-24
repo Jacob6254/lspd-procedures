@@ -1,4 +1,4 @@
-import { BookOpen, Crosshair, Eye, FileText, Handshake, Home, LogOut, Plus, Radio, Settings } from 'lucide-react'
+import { BookOpen, Crosshair, Eye, FileText, Handshake, Home, LogOut, Plane, Plus, Radio, ScrollText, Settings, ShieldCheck, Target, Truck } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { type Route, interventionTitle, negociationTitre, suspectName, useSaveStatus, useStore } from '../store'
 import { useAuth } from '../auth'
@@ -78,6 +78,12 @@ export function Sidebar() {
         ))}
 
         <NavItem icon={FileText} label="Mes procédures" active={is('historique')} onClick={() => go({ page: 'historique' })} />
+        <NavItem
+          icon={ScrollText}
+          label="Comment faire une procédure"
+          active={route.page === 'guide' && route.id === 'procedure'}
+          onClick={() => go({ page: 'guide', id: 'procedure' })}
+        />
 
         <div className="nav-section">Négociation</div>
         <button type="button" className="nav-new" onClick={createNegociation}>
@@ -99,6 +105,38 @@ export function Sidebar() {
         ))}
         <NavItem icon={Handshake} label="Mes négociations" active={is('negociations')} onClick={() => go({ page: 'negociations' })} />
         <NavItem icon={BookOpen} label="Comment négocier" active={is('nego-guide')} onClick={() => go({ page: 'nego-guide' })} />
+
+        <div className="nav-section">Formations</div>
+        <NavItem
+          icon={ShieldCheck}
+          label="Les bases du rookie"
+          active={route.page === 'guide' && route.id === 'rookie'}
+          onClick={() => go({ page: 'guide', id: 'rookie' })}
+        />
+        <NavItem
+          icon={Truck}
+          label="Convoi"
+          active={route.page === 'guide' && route.id === 'convoi'}
+          onClick={() => go({ page: 'guide', id: 'convoi' })}
+        />
+        <NavItem
+          icon={BookOpen}
+          label="Unité Mary (MSG)"
+          active={route.page === 'guide' && route.id === 'msg'}
+          onClick={() => go({ page: 'guide', id: 'msg' })}
+        />
+        <NavItem
+          icon={Plane}
+          label="Air Support (ASD)"
+          active={route.page === 'guide' && route.id === 'asd'}
+          onClick={() => go({ page: 'guide', id: 'asd' })}
+        />
+        <NavItem
+          icon={Target}
+          label="PPA — usage de l’arme"
+          active={route.page === 'guide' && route.id === 'ppa'}
+          onClick={() => go({ page: 'guide', id: 'ppa' })}
+        />
 
         <div className="nav-section">Registre</div>
         <NavItem icon={Crosshair} label="Répertoire armes" active={is('armes')} onClick={() => go({ page: 'armes' })} />
