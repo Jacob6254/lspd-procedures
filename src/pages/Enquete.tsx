@@ -27,7 +27,7 @@ import { FICHES, ROLES_GANG, STATUTS_FICHE, TYPES_LIEN, defFiche, typeLien } fro
 import { couleurPlan } from '@shared/plan'
 import type { Suspect } from '@shared/types'
 import { dateFr, uid } from '../lib/format'
-import { nouvelleFiche, useEnquetes } from '../enquetes'
+import { nouvelleFiche, placeLibre, useEnquetes } from '../enquetes'
 import { useStore } from '../store'
 import { api, imgUrl, posteImgUrl } from '../api'
 import { glisser, usePlan } from '../plan/viewport'
@@ -298,10 +298,6 @@ export function EnquetePage({ id }: { id: string }) {
                 const y1 = a.y * H
                 const x2 = b.x * W
                 const y2 = b.y * H
-                const mx = (x1 + x2) / 2
-                const my = (y1 + y2) / 2
-                const libelle = l.libelle.trim() || t.label.toLowerCase()
-                const larg = libelle.length * 6.4 + 14
                 const actif = lienChoisi === l.id
                 return (
                   <g
@@ -316,10 +312,6 @@ export function EnquetePage({ id }: { id: string }) {
                     <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(6,9,16,0.6)" strokeWidth={actif ? 7 : 5} />
                     <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={c} strokeWidth={actif ? 3 : 2} />
                     <circle cx={x2} cy={y2} r={4} fill={c} />
-                    <rect x={mx - larg / 2} y={my - 11} width={larg} height={20} rx={4} fill="rgba(8,11,20,0.9)" stroke={c} strokeWidth={1} />
-                    <text x={mx} y={my + 3} textAnchor="middle" fontSize={11} fill="#e2e8f0" fontFamily="Archivo, sans-serif">
-                      {libelle}
-                    </text>
                   </g>
                 )
               })}
@@ -341,6 +333,45 @@ export function EnquetePage({ id }: { id: string }) {
                 }
               />
             ))}
+            {/* Les libellés des fils repassent devant les fiches, sinon on ne les lit plus. */}
+            <svg className="plan-svg plan-svg-dessus" width={Math.max(1, W)} height={Math.max(1, H)}>
+              {enq.liens.map((l) => {
+                const a = enq.fiches.find((f) => f.id === l.de)
+                const b = enq.fiches.find((f) => f.id === l.vers)
+                if (!a || !b) return null
+                const t = typeLien(l.type)
+                const c = couleurPlan(t.couleur)
+                const mx = ((a.x + b.x) / 2) * W
+                const my = ((a.y + b.y) / 2) * H
+                const libelle = l.libelle.trim() || t.label.toLowerCase()
+                const larg = libelle.length * 6.4 + 16
+                return (
+                  <g
+                    key={l.id}
+                    className="fil"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setLienChoisi(l.id)
+                      setChoisie(null)
+                    }}
+                  >
+                    <rect
+                      x={mx - larg / 2}
+                      y={my - 11}
+                      width={larg}
+                      height={21}
+                      rx={4}
+                      fill="rgba(8,11,20,0.95)"
+                      stroke={c}
+                      strokeWidth={lienChoisi === l.id ? 2 : 1}
+                    />
+                    <text x={mx} y={my + 4} textAnchor="middle" fontSize={11} fill="#e2e8f0" fontFamily="Archivo, sans-serif">
+                      {libelle}
+                    </text>
+                  </g>
+                )
+              })}
+            </svg>
           </div>
 
           {enq.fiches.length === 0 && (
@@ -399,6 +430,7 @@ export function EnquetePage({ id }: { id: string }) {
 
       {importOuvert && (
         <ImportSuspect
+          place={placeLibre(enq.fiches)}
           onFermer={() => setImport(false)}
           onChoisir={(f) => {
             maj((x) => ({ ...x, fiches: [...x.fiches, f] }))
@@ -455,7 +487,7 @@ function CarteFiche({
   return (
     <div
       className={`fiche fiche-${fiche.type} ${choisie ? 'choisie' : ''} ${depart ? 'depart' : ''} ${lecture ? 'lecture' : ''}`}
-      style={style}
+      style={{ ...style, zIndex: choisie || depart ? 3 : undefined }}
       onPointerDown={onDeplacer}
       onClick={(e) => {
         e.stopPropagation()
@@ -686,7 +718,15 @@ function InspecteurLien({
 }
 
 /** On récupère un suspect déjà traité plutôt que de le retaper. */
-function ImportSuspect({ onFermer, onChoisir }: { onFermer: () => void; onChoisir: (f: Fiche) => void }) {
+function ImportSuspect({
+  place,
+  onFermer,
+  onChoisir
+}: {
+  place: { x: number; y: number }
+  onFermer: () => void
+  onChoisir: (f: Fiche) => void
+}) {
   const interventions = useStore((s) => s.db.interventions)
   const [recherche, setRecherche] = useState('')
 
@@ -718,7 +758,7 @@ function ImportSuspect({ onFermer, onChoisir }: { onFermer: () => void; onChoisi
                 type="button"
                 className="import-ligne"
                 onClick={() => {
-                  const f = nouvelleFiche('suspect', 0.3 + Math.random() * 0.4, 0.3 + Math.random() * 0.4)
+                  const f = nouvelleFiche('suspect', place.x, place.y)
                   onChoisir({
                     ...f,
                     titre: nom,

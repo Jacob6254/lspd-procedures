@@ -331,6 +331,9 @@ export function OperationPage({ id }: { id: string }) {
             <div className="rail-titre">
               <Layers size={13} /> Calques
             </div>
+            <p className="rail-cible">
+              Nouvel élément pour <strong>{op.unites.find((u) => u.id === uniteActive)?.nom ?? 'aucune unité'}</strong>
+            </p>
             <div className="rail-unites">
               {op.unites.map((u) => (
                 <UniteLigne
@@ -570,7 +573,11 @@ function UniteLigne({
 }) {
   const [ouvert, setOuvert] = useState(false)
   return (
-    <div className={`unite ${active ? 'active' : ''} ${unite.visible ? '' : 'eteinte'}`}>
+    <div
+      className={`unite ${active ? 'active' : ''} ${unite.visible ? '' : 'eteinte'}`}
+      onPointerDown={onActiver}
+      title="Les prochains éléments iront sur ce calque"
+    >
       <button type="button" className="unite-puce" style={{ background: couleurPlan(unite.couleur) }} onClick={() => setOuvert((v) => !v)} />
       <input className="unite-nom" value={unite.nom} onChange={(e) => onChange({ nom: e.target.value })} onFocus={onActiver} />
       <input

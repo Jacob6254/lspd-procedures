@@ -23,6 +23,28 @@ export function nouvelleEnquete(cible: string): Enquete {
   }
 }
 
+/**
+ * Le coin le plus dégagé du tableau : une fiche importée ne doit pas tomber
+ * sur une autre.
+ */
+export function placeLibre(fiches: { x: number; y: number }[]): { x: number; y: number } {
+  if (fiches.length === 0) return { x: 0.5, y: 0.32 }
+  let choisie = { x: 0.5, y: 0.5 }
+  let ecart = -1
+  for (let i = 1; i <= 8; i++) {
+    for (let j = 1; j <= 6; j++) {
+      const p = { x: i / 9, y: j / 7 }
+      // Les fiches sont plus larges que hautes : on compte la distance en conséquence.
+      const d = Math.min(...fiches.map((f) => Math.hypot(f.x - p.x, (f.y - p.y) * 0.6)))
+      if (d > ecart) {
+        ecart = d
+        choisie = p
+      }
+    }
+  }
+  return choisie
+}
+
 export function nouvelleFiche(type: FicheType, x: number, y: number): Fiche {
   return {
     id: uid(),

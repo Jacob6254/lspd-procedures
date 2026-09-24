@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { PointPlan } from '@shared/plan'
 
 /**
@@ -20,7 +20,13 @@ const K_MIN = 0.6
 const K_MAX = 14
 
 export interface CtrlPlan {
-  cadre: RefObject<HTMLDivElement | null>
+  /**
+   * À poser sur le cadre : `ref={ctrl.cadre}`. C'est une fonction et non un
+   * objet, pour que la mesure démarre à l'instant où le cadre entre dans la
+   * page : l'éditeur affiche d'abord un écran de chargement, et le cadre
+   * n'existe pas encore au premier rendu.
+   */
+  cadre: (el: HTMLDivElement | null) => void
   vue: Vue
   /** Taille du monde à l'écran, en pixels. */
   monde: { w: number; h: number }
@@ -37,12 +43,18 @@ export interface CtrlPlan {
 }
 
 export function usePlan(ratio: number): CtrlPlan {
-  const cadre = useRef<HTMLDivElement | null>(null)
+  const element = useRef<HTMLDivElement | null>(null)
+  const [noeud, setNoeud] = useState<HTMLDivElement | null>(null)
   const [boite, setBoite] = useState({ w: 0, h: 0 })
   const [vue, setVue] = useState<Vue>({ x: 0, y: 0, k: 1 })
   const [panEnCours, setPan] = useState(false)
   const vueRef = useRef(vue)
   vueRef.current = vue
+
+  const cadre = useCallback((el: HTMLDivElement | null) => {
+    element.current = el
+    setNoeud(el)
+  }, [])
 
   // Largeur du monde quand le plan entier tient dans le cadre.
   const base = Math.max(1, Math.min(boite.w, boite.h * ratio))
@@ -50,34 +62,53 @@ export function usePlan(ratio: number): CtrlPlan {
   baseRef.current = base
   const monde = { w: base * vue.k, h: (base / ratio) * vue.k }
 
-  const centrer = useCallback((k = 1) => {
-    const el = cadre.current
-    if (!el) return
-    const b = baseRef.current
-    setVue({ x: (el.clientWidth - b * k) / 2, y: (el.clientHeight - (b / ratio) * k) / 2, k })
-  }, [ratio])
+  const centrer = useCallback(
+    (k = 1) => {
+      const el = element.current
+      if (!el) return
+      const b = baseRef.current
+      setVue({ x: (el.clientWidth - b * k) / 2, y: (el.clientHeight - (b / ratio) * k) / 2, k })
+    },
+    [ratio]
+  )
 
   useLayoutEffect(() => {
-    const el = cadre.current
-    if (!el) return
-    const mesurer = () => setBoite({ w: el.clientWidth, h: el.clientHeight })
+    if (!noeud) return
+    const mesurer = () => setBoite({ w: noeud.clientWidth, h: noeud.clientHeight })
     mesurer()
     const ro = new ResizeObserver(mesurer)
-    ro.observe(el)
+    ro.observe(noeud)
     return () => ro.disconnect()
-  }, [])
+  }, [noeud])
 
-  // Premier affichage : le plan entier, centré.
-  const cadré = useRef(false)
+  // Premier affichage : le plan entier, centré. Ensuite, quand la fenêtre
+  // change de taille, on garde sous les yeux le point qu'on regardait.
+  const cadrage = useRef(false)
+  const precedent = useRef({ base: 0, w: 0, h: 0 })
   useLayoutEffect(() => {
-    if (cadré.current || boite.w === 0) return
-    cadré.current = true
-    centrer(1)
-  }, [boite.w, centrer])
+    if (boite.w === 0 || boite.h === 0) return
+    const avant = precedent.current
+    precedent.current = { base, w: boite.w, h: boite.h }
+
+    if (!cadrage.current) {
+      cadrage.current = true
+      setVue({ x: (boite.w - base) / 2, y: (boite.h - base / ratio) / 2, k: 1 })
+      return
+    }
+    if (avant.base === base && avant.w === boite.w && avant.h === boite.h) return
+
+    setVue((v) => {
+      const vise = {
+        x: (avant.w / 2 - v.x) / (avant.base * v.k),
+        y: (avant.h / 2 - v.y) / ((avant.base / ratio) * v.k)
+      }
+      return { ...v, x: boite.w / 2 - vise.x * base * v.k, y: boite.h / 2 - vise.y * (base / ratio) * v.k }
+    })
+  }, [base, boite.w, boite.h, ratio])
 
   const versPlan = useCallback(
     (e: { clientX: number; clientY: number }): PointPlan => {
-      const el = cadre.current
+      const el = element.current
       const v = vueRef.current
       const b = baseRef.current
       if (!el) return { x: 0.5, y: 0.5 }
@@ -101,11 +132,10 @@ export function usePlan(ratio: number): CtrlPlan {
 
   // Zoom à la molette, centré sur le curseur.
   useEffect(() => {
-    const el = cadre.current
-    if (!el) return
+    if (!noeud) return
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
-      const r = el.getBoundingClientRect()
+      const r = noeud.getBoundingClientRect()
       const cx = e.clientX - r.left
       const cy = e.clientY - r.top
       setVue((v) => {
@@ -115,12 +145,12 @@ export function usePlan(ratio: number): CtrlPlan {
         return { k, x: cx - (cx - v.x) * f, y: cy - (cy - v.y) * f }
       })
     }
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
-  }, [])
+    noeud.addEventListener('wheel', onWheel, { passive: false })
+    return () => noeud.removeEventListener('wheel', onWheel)
+  }, [noeud])
 
   const zoomer = useCallback((facteur: number) => {
-    const el = cadre.current
+    const el = element.current
     if (!el) return
     const cx = el.clientWidth / 2
     const cy = el.clientHeight / 2

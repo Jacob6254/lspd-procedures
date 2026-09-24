@@ -37,7 +37,9 @@ export async function exporterTableau(enq: Enquete, urlImage: (file: string) => 
     ctx.stroke()
   }
 
-  // Les fils passent sous les fiches.
+  // Les fils passent sous les fiches, mais leurs libellés se posent par-dessus :
+  // c'est ce qui rend le tableau lisible six mois plus tard.
+  const libelles: (() => void)[] = []
   for (const l of enq.liens) {
     const a = enq.fiches.find((f) => f.id === l.de)
     const b = enq.fiches.find((f) => f.id === l.vers)
@@ -63,20 +65,22 @@ export async function exporterTableau(enq: Enquete, urlImage: (file: string) => 
     ctx.stroke()
 
     const libelle = l.libelle.trim() || t.label.toLowerCase()
-    ctx.font = '600 17px Archivo, sans-serif'
-    const w = ctx.measureText(libelle).width + 20
     const mx = (x1 + x2) / 2
     const my = (y1 + y2) / 2
-    ctx.fillStyle = 'rgba(8, 11, 20, 0.92)'
-    coinsRonds(ctx, mx - w / 2, my - 15, w, 30, 6)
-    ctx.fill()
-    ctx.strokeStyle = c
-    ctx.lineWidth = 1.5
-    ctx.stroke()
-    ctx.fillStyle = '#e2e8f0'
-    ctx.textAlign = 'center'
-    ctx.fillText(libelle, mx, my + 6)
-    ctx.textAlign = 'left'
+    libelles.push(() => {
+      ctx.font = '600 17px Archivo, sans-serif'
+      const w = ctx.measureText(libelle).width + 20
+      ctx.fillStyle = 'rgba(8, 11, 20, 0.95)'
+      coinsRonds(ctx, mx - w / 2, my - 15, w, 30, 6)
+      ctx.fill()
+      ctx.strokeStyle = c
+      ctx.lineWidth = 1.5
+      ctx.stroke()
+      ctx.fillStyle = '#e2e8f0'
+      ctx.textAlign = 'center'
+      ctx.fillText(libelle, mx, my + 6)
+      ctx.textAlign = 'left'
+    })
   }
 
   // Les images des fiches, chargées avant la mise en page.
@@ -91,6 +95,7 @@ export async function exporterTableau(enq: Enquete, urlImage: (file: string) => 
   )
 
   for (const f of enq.fiches) dessinerFiche(ctx, f, L, H, photos)
+  for (const poser of libelles) poser()
 
   // Le bandeau.
   ctx.fillStyle = '#0b0e18'
