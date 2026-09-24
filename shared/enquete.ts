@@ -16,13 +16,21 @@ export interface DefFiche {
   largeur: number
 }
 
+/**
+ * Les largeurs sont moitié moindres qu'avant : le tableau est deux fois plus
+ * vaste, et la vue s'ouvre à l'échelle 2 — on voit donc la même chose au
+ * départ, avec deux fois plus de place autour pour écarter les fiches.
+ */
 export const FICHES: DefFiche[] = [
-  { type: 'suspect', label: 'Suspect', icone: 'UserRound', largeur: 0.088 },
-  { type: 'preuve', label: 'Preuve', icone: 'Camera', largeur: 0.1 },
-  { type: 'lieu', label: 'Lieu', icone: 'MapPin', largeur: 0.082 },
-  { type: 'vehicule', label: 'Véhicule', icone: 'Car', largeur: 0.082 },
-  { type: 'note', label: 'Note', icone: 'StickyNote', largeur: 0.076 }
+  { type: 'suspect', label: 'Suspect', icone: 'UserRound', largeur: 0.044 },
+  { type: 'preuve', label: 'Preuve', icone: 'Camera', largeur: 0.05 },
+  { type: 'lieu', label: 'Lieu', icone: 'MapPin', largeur: 0.041 },
+  { type: 'vehicule', label: 'Véhicule', icone: 'Car', largeur: 0.041 },
+  { type: 'note', label: 'Note', icone: 'StickyNote', largeur: 0.038 }
 ]
+
+/** L'échelle à laquelle le tableau s'ouvre : les fiches sont lisibles d'emblée. */
+export const ZOOM_TABLEAU = 2
 
 export function defFiche(type: FicheType): DefFiche {
   return FICHES.find((f) => f.type === type) ?? FICHES[0]
@@ -146,13 +154,13 @@ export function rangerTableau(e: Enquete): Fiche[] {
 
   const RAYONS: [number, number][] = [
     [0, 0],
-    [0.235, 0.275],
-    [0.4, 0.4]
+    [0.15, 0.17],
+    [0.28, 0.29]
   ]
   const place = new Map<string, PointPlan>()
   couronnes.forEach((ids, d) => {
     if (d === 0) {
-      for (const id of ids) place.set(id, { x: 0.5, y: 0.48 })
+      for (const id of ids) place.set(id, { x: 0.5, y: 0.5 })
       return
     }
     ids.forEach((id, k) => {
@@ -160,8 +168,8 @@ export function rangerTableau(e: Enquete): Fiche[] {
       // aligner les fiches en rayons.
       const angle = -Math.PI / 2 + ((k + (d === 2 ? 0.5 : 0)) / Math.max(1, ids.length)) * Math.PI * 2
       place.set(id, {
-        x: borne(0.5 + Math.cos(angle) * RAYONS[d][0], 0.09, 0.91),
-        y: borne(0.48 + Math.sin(angle) * RAYONS[d][1], 0.1, 0.9)
+        x: borne(0.5 + Math.cos(angle) * RAYONS[d][0], 0.05, 0.95),
+        y: borne(0.5 + Math.sin(angle) * RAYONS[d][1], 0.06, 0.94)
       })
     })
   })
@@ -169,25 +177,64 @@ export function rangerTableau(e: Enquete): Fiche[] {
   return e.fiches.map((f) => ({ ...f, ...(place.get(f.id) ?? { x: f.x, y: f.y }), angle: 0 }))
 }
 
+interface Boite {
+  x: number
+  y: number
+  larg: number
+  haut: number
+}
+
+function recouvrement(a: Boite, b: Boite): number {
+  const dx = (a.larg + b.larg) / 2 - Math.abs(a.x - b.x)
+  const dy = (a.haut + b.haut) / 2 - Math.abs(a.y - b.y)
+  return dx > 0 && dy > 0 ? dx * dy : 0
+}
+
 /**
- * Où poser le nom de chaque fil. On vise le milieu du trait, et on glisse le
- * long du trait tant que l'étiquette en recouvre une autre.
+ * Où poser le nom de chaque fil. On vise le milieu du trait, puis on glisse le
+ * long du trait et de part et d'autre tant que l'étiquette recouvre une fiche
+ * ou un autre nom. Si rien n'est libre, on garde le moins mauvais.
  */
 export function positionsLibelles(
-  fils: { x1: number; y1: number; x2: number; y2: number; larg: number; haut: number }[]
+  fils: { x1: number; y1: number; x2: number; y2: number; larg: number; haut: number }[],
+  obstacles: Boite[] = []
 ): PointPlan[] {
-  const ESSAIS = [0.5, 0.36, 0.64, 0.28, 0.72, 0.2, 0.8]
-  const posees: { x: number; y: number; larg: number; haut: number }[] = []
+  const LONG = [0.5, 0.4, 0.6, 0.32, 0.68, 0.25, 0.75, 0.18, 0.82]
+  const COTE = [0, -1, 1, -2, 2]
+  const posees: Boite[] = []
+
   for (const f of fils) {
-    let choisi = { x: f.x1, y: f.y1 }
-    for (const t of ESSAIS) {
-      choisi = { x: f.x1 + (f.x2 - f.x1) * t, y: f.y1 + (f.y2 - f.y1) * t }
-      const gene = posees.some(
-        (o) => Math.abs(o.x - choisi.x) < (o.larg + f.larg) / 2 && Math.abs(o.y - choisi.y) < (o.haut + f.haut) / 2
-      )
-      if (!gene) break
+    const dx = f.x2 - f.x1
+    const dy = f.y2 - f.y1
+    const d = Math.hypot(dx, dy) || 1
+    // Perpendiculaire au fil, pour décaler l'étiquette sur le côté.
+    const nx = -dy / d
+    const ny = dx / d
+
+    let meilleur: Boite | null = null
+    let meilleurScore = Infinity
+    sortie: for (const t of LONG) {
+      for (const c of COTE) {
+        const essai: Boite = {
+          x: f.x1 + dx * t + nx * c * (f.haut * 0.9),
+          y: f.y1 + dy * t + ny * c * (f.haut * 0.9),
+          larg: f.larg,
+          haut: f.haut
+        }
+        let score = 0
+        for (const o of obstacles) score += recouvrement(essai, o)
+        for (const o of posees) score += recouvrement(essai, o) * 1.5
+        if (score === 0) {
+          meilleur = essai
+          break sortie
+        }
+        if (score < meilleurScore) {
+          meilleurScore = score
+          meilleur = essai
+        }
+      }
     }
-    posees.push({ ...choisi, larg: f.larg, haut: f.haut })
+    posees.push(meilleur ?? { x: f.x1 + dx * 0.5, y: f.y1 + dy * 0.5, larg: f.larg, haut: f.haut })
   }
   return posees.map((p) => ({ x: p.x, y: p.y }))
 }

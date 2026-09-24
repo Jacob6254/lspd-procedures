@@ -24,7 +24,17 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Enquete, Fiche, FicheType, Lien } from '@shared/enquete'
-import { FICHES, ROLES_GANG, STATUTS_FICHE, TYPES_LIEN, defFiche, positionsLibelles, rangerTableau, typeLien } from '@shared/enquete'
+import {
+  FICHES,
+  ROLES_GANG,
+  STATUTS_FICHE,
+  TYPES_LIEN,
+  ZOOM_TABLEAU,
+  defFiche,
+  positionsLibelles,
+  rangerTableau,
+  typeLien
+} from '@shared/enquete'
 import { couleurPlan } from '@shared/plan'
 import type { Suspect } from '@shared/types'
 import { dateFr, uid } from '../lib/format'
@@ -65,8 +75,10 @@ export function EnquetePage({ id }: { id: string }) {
   const [occupe, setOccupe] = useState(false)
   // Hauteur réelle de chaque fiche : le fil doit partir de la punaise, en haut.
   const [hauteurs, setHauteurs] = useState<Record<string, number>>({})
+  /** Le fil dont on écrit le nom, directement sur le tableau. */
+  const [filEcrit, setFilEcrit] = useState<string | null>(null)
 
-  const ctrl = usePlan(RATIO)
+  const ctrl = usePlan(RATIO, 0, ZOOM_TABLEAU)
   const lecture = !mien
   const maj = (patch: (e: Enquete) => Enquete) => {
     if (lecture) return
@@ -249,7 +261,26 @@ export function EnquetePage({ id }: { id: string }) {
                 type="button"
                 className="rail-outil"
                 title="Remet la tête du réseau au centre et répartit les fiches autour"
-                onClick={() => maj((x) => ({ ...x, fiches: rangerTableau(x) }))}
+                onClick={() => {
+                  const apres = rangerTableau(enq)
+                  maj((x) => ({ ...x, fiches: rangerTableau(x) }))
+                  if (apres.length) {
+                    const xs = apres.map((f) => f.x)
+                    const ys = apres.map((f) => f.y)
+                    const m = 0.05
+                    setTimeout(
+                      () =>
+                        ctrl.cadrerSur({
+                          x: Math.min(...xs) - m,
+                          y: Math.min(...ys) - m,
+                          w: Math.max(...xs) - Math.min(...xs) + m * 2,
+                          h: Math.max(...ys) - Math.min(...ys) + m * 2
+                        }),
+                      80
+                    )
+                  }
+                }}
+
               >
                 <Waypoints size={16} />
                 <span>Ranger le tableau</span>
@@ -361,75 +392,80 @@ export function EnquetePage({ id }: { id: string }) {
                 }
               />
             ))}
-            {/* Les libellés des fils repassent devant les fiches, sinon on ne les lit plus. */}
-            <svg className="plan-svg plan-svg-dessus" width={Math.max(1, W)} height={Math.max(1, H)}>
-              {(() => {
-                const visibles = enq.liens
-                  .map((l) => {
-                    const a = enq.fiches.find((f) => f.id === l.de)
-                    const b = enq.fiches.find((f) => f.id === l.vers)
-                    return a && b ? { l, a, b } : null
-                  })
-                  .filter((v): v is { l: Lien; a: Fiche; b: Fiche } => v !== null)
-                const places = positionsLibelles(
-                  visibles.map(({ l, a, b }) => {
-                    const p1 = punaise(a)
-                    const p2 = punaise(b)
-                    const creux = Math.hypot(p2.x - p1.x, p2.y - p1.y) * 0.055
-                    return {
-                      x1: p1.x,
-                      y1: p1.y + creux,
-                      x2: p2.x,
-                      y2: p2.y + creux,
-                      larg: (l.libelle.trim() || 'à nommer').length * 6.4 + 16,
-                      haut: 26
-                    }
-                  })
-                )
-                return visibles.map(({ l }, i) => {
-                  const t = typeLien(l.type)
-                  const c = couleurPlan(t.couleur)
-                  const mx = places[i].x
-                  const my = places[i].y
-                  const sansNom = !l.libelle.trim()
-                  const libelle = sansNom ? 'à nommer' : l.libelle.trim()
-                  const larg = libelle.length * 6.4 + 16
-                  return (
-                  <g
+            {/* Les noms des fils : en HTML, pour pouvoir écrire dedans d'un clic. */}
+            {(() => {
+              const visibles = enq.liens
+                .map((l) => {
+                  const a = enq.fiches.find((f) => f.id === l.de)
+                  const b = enq.fiches.find((f) => f.id === l.vers)
+                  return a && b ? { l, a, b } : null
+                })
+                .filter((v): v is { l: Lien; a: Fiche; b: Fiche } => v !== null)
+                // Un fil sans nom n'affiche rien, sauf quand on le sélectionne.
+                .filter(({ l }) => l.libelle.trim() !== '' || lienChoisi === l.id)
+
+              const obstacles = enq.fiches.map((f) => ({
+                x: f.x * W,
+                y: f.y * H,
+                larg: defFiche(f.type).largeur * W,
+                haut: hauteurs[f.id] ?? 92
+              }))
+
+              const places = positionsLibelles(
+                visibles.map(({ l, a, b }) => {
+                  const p1 = punaise(a)
+                  const p2 = punaise(b)
+                  const creux = Math.hypot(p2.x - p1.x, p2.y - p1.y) * 0.055
+                  return {
+                    x1: p1.x,
+                    y1: p1.y + creux,
+                    x2: p2.x,
+                    y2: p2.y + creux,
+                    larg: (l.libelle.trim() || 'nommer…').length * 6.6 + 18,
+                    haut: 26
+                  }
+                }),
+                obstacles
+              )
+
+              return visibles.map(({ l }, i) => {
+                const c = couleurPlan(typeLien(l.type).couleur)
+                const sansNom = l.libelle.trim() === ''
+                const enEcriture = filEcrit === l.id
+                const classes = ['fil-nom', lienChoisi === l.id ? 'choisi' : '', sansNom ? 'vide' : ''].join(' ')
+                return (
+                  <div
                     key={l.id}
-                    className="fil"
+                    className={classes}
+                    style={{ left: places[i].x, top: places[i].y, '--c': c } as CSSProperties}
+                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation()
                       setLienChoisi(l.id)
                       setChoisie(null)
+                      if (!lecture) setFilEcrit(l.id)
                     }}
                   >
-                    <rect
-                      x={mx - larg / 2}
-                      y={my - 11}
-                      width={larg}
-                      height={21}
-                      rx={4}
-                      fill="rgba(8,11,20,0.95)"
-                      stroke={c}
-                      strokeWidth={lienChoisi === l.id ? 2 : 1}
-                    />
-                    <text
-                      x={mx}
-                      y={my + 4}
-                      textAnchor="middle"
-                      fontSize={11}
-                      fill={sansNom ? '#f0a327' : '#e2e8f0'}
-                      fontStyle={sansNom ? 'italic' : undefined}
-                      fontFamily="Archivo, sans-serif"
-                    >
-                      {libelle}
-                    </text>
-                  </g>
-                  )
-                })
-              })()}
-            </svg>
+                    {enEcriture ? (
+                      <input
+                        autoFocus
+                        value={l.libelle}
+                        placeholder="chef de, a vendu à…"
+                        onChange={(e) =>
+                          maj((x) => ({ ...x, liens: x.liens.map((y) => (y.id === l.id ? { ...y, libelle: e.target.value } : y)) }))
+                        }
+                        onBlur={() => setFilEcrit(null)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === 'Escape') setFilEcrit(null)
+                        }}
+                      />
+                    ) : (
+                      <span>{l.libelle.trim() || 'nommer…'}</span>
+                    )}
+                  </div>
+                )
+              })
+            })()}
           </div>
 
           {enq.fiches.length === 0 && (
@@ -447,6 +483,7 @@ export function EnquetePage({ id }: { id: string }) {
               fiche={fiche}
               enq={enq}
               lecture={lecture}
+              srcImage={(file) => (lecture ? posteImgUrl(enq.auteur, file) : imgUrl(file))}
               onChange={(patch) => maj((x) => ({ ...x, fiches: x.fiches.map((y) => (y.id === fiche.id ? { ...y, ...patch } : y)) }))}
               onSupprimer={() => supprimerFiche(fiche.id)}
               onFermer={() => setChoisie(null)}
@@ -593,6 +630,7 @@ function InspecteurFiche({
   fiche,
   enq,
   lecture,
+  srcImage,
   onChange,
   onSupprimer,
   onFermer,
@@ -601,6 +639,7 @@ function InspecteurFiche({
   fiche: Fiche
   enq: Enquete
   lecture: boolean
+  srcImage: (file: string) => string
   onChange: (patch: Partial<Fiche>) => void
   onSupprimer: () => void
   onFermer: () => void
@@ -627,6 +666,40 @@ function InspecteurFiche({
         <button type="button" className="btn btn-ghost btn-icon" onClick={onFermer} title="Fermer">
           <X size={15} />
         </button>
+      </div>
+
+      <div className="insp-photo">
+        {fiche.image ? (
+          <img src={srcImage(fiche.image)} alt="" />
+        ) : (
+          <div className="insp-photo-vide">
+            <Camera size={22} />
+            <span>Pas de screen</span>
+          </div>
+        )}
+        {!lecture && (
+          <div className="insp-photo-actions">
+            <button type="button" className="btn btn-petit" onClick={() => fichier.current?.click()}>
+              <ImagePlus size={14} /> {fiche.image ? 'Changer' : 'Ajouter un screen'}
+            </button>
+            {fiche.image && (
+              <button type="button" className="btn btn-petit btn-ghost" onClick={() => onChange({ image: null })}>
+                <X size={14} /> Retirer
+              </button>
+            )}
+          </div>
+        )}
+        <input
+          ref={fichier}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) void envoyer(f)
+            e.target.value = ''
+          }}
+        />
       </div>
 
       <Field label={fiche.type === 'suspect' ? 'Identité' : fiche.type === 'note' ? 'Titre de la note' : 'Intitulé'}>
@@ -665,35 +738,9 @@ function InspecteurFiche({
         <TextArea value={fiche.texte} onChange={(v) => onChange({ texte: v })} rows={5} />
       </Field>
 
-      {fiche.type !== 'note' && (
-        <Field label="Date">
-          <TextInput value={fiche.date} onChange={(v) => onChange({ date: v })} type="date" />
-        </Field>
-      )}
-
-      {!lecture && fiche.type !== 'note' && (
-        <div className="insp-image">
-          <input
-            ref={fichier}
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0]
-              if (f) void envoyer(f)
-              e.target.value = ''
-            }}
-          />
-          <button type="button" className="btn" onClick={() => fichier.current?.click()}>
-            <ImagePlus size={15} /> {fiche.image ? 'Changer le screen' : 'Ajouter un screen'}
-          </button>
-          {fiche.image && (
-            <button type="button" className="btn btn-ghost btn-icon" title="Retirer le screen" onClick={() => onChange({ image: null })}>
-              <X size={15} />
-            </button>
-          )}
-        </div>
-      )}
+      <Field label="Date">
+        <TextInput value={fiche.date} onChange={(v) => onChange({ date: v })} type="date" />
+      </Field>
 
       {fiche.source && (
         <button type="button" className="btn btn-ghost insp-dossier" onClick={() => onOuvrirDossier(fiche.source!.interventionId)}>

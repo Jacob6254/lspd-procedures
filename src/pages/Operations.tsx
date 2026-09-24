@@ -49,32 +49,100 @@ export function OperationsPage() {
         }
       />
 
-      <button type="button" className="table-briefing" onClick={() => (derniere ? go({ page: 'operation', id: derniere.id }) : void nouvelle())}>
-        <div className="table-plateau">
-          <div className="table-carte">
-            {!fondAbsent ? (
-              <img src={fond.fichier} alt="" draggable={false} onError={() => setFondAbsent(true)} />
-            ) : (
-              <div className="table-carte-vide">
-                <MapIcon size={30} />
-                <span>Fond de carte à installer</span>
-              </div>
-            )}
-            <span className="table-reflet" />
+      <div className="table-scene">
+        <aside className="table-cote">
+          <span className="eyebrow">La salle de briefing</span>
+          <p>
+            La carte de Los Santos est posée sur la table. On y plante le dispositif, on trace les itinéraires, chaque unité garde son
+            calque, et le plan repart en image avec son briefing écrit.
+          </p>
+          <div className="table-stats">
+            <div>
+              <strong>{mes.length}</strong>
+              <small>opération{mes.length > 1 ? 's' : ''}</small>
+            </div>
+            <div>
+              <strong>{mes.filter((o) => o.publiee).length}</strong>
+              <small>publiée{mes.filter((o) => o.publiee).length > 1 ? 's' : ''}</small>
+            </div>
+            <div>
+              <strong>{mes.reduce((n, o) => n + o.marqueurs.length, 0)}</strong>
+              <small>marqueurs</small>
+            </div>
           </div>
-        </div>
-        <div className="table-legende">
-          <strong>{derniere ? derniere.nom : 'Ouvrir la table'}</strong>
-          <span>
-            {derniere
-              ? `${dateFr(derniere.date)} · ${derniere.marqueurs.length} marqueur(s), ${derniere.fleches.length} itinéraire(s)`
-              : 'Aucune opération pour le moment — clique pour en monter une.'}
-          </span>
-          <em>
-            Entrer <ArrowRight size={14} />
-          </em>
-        </div>
-      </button>
+          <button type="button" className="btn btn-primary" onClick={() => void nouvelle()}>
+            <Plus size={15} /> Nouvelle opération
+          </button>
+        </aside>
+
+        <button
+          type="button"
+          className="table-briefing"
+          onClick={() => (derniere ? go({ page: 'operation', id: derniere.id }) : void nouvelle())}
+        >
+          <div className="table-plateau">
+            <div className="table-carte">
+              {!fondAbsent ? (
+                <img src={fond.fichier} alt="" draggable={false} onError={() => setFondAbsent(true)} />
+              ) : (
+                <div className="table-carte-vide">
+                  <MapIcon size={30} />
+                  <span>Fond de carte à installer</span>
+                </div>
+              )}
+              <span className="table-reflet" />
+            </div>
+          </div>
+          <div className="table-legende">
+            <strong>{derniere ? derniere.nom : 'Ouvrir la table'}</strong>
+            <span>
+              {derniere
+                ? `${dateFr(derniere.date)} · ${derniere.marqueurs.length} marqueur(s), ${derniere.fleches.length} itinéraire(s)`
+                : 'Aucune opération pour le moment — clique pour en monter une.'}
+            </span>
+            <em>
+              Entrer <ArrowRight size={14} />
+            </em>
+          </div>
+        </button>
+
+        <aside className="table-cote">
+          <span className="eyebrow">Reprendre</span>
+          {mes.length === 0 ? (
+            <p className="muted">Rien encore. La première opération se monte en deux minutes.</p>
+          ) : (
+            <div className="table-liste">
+              {mes.slice(0, 5).map((o) => (
+                <button type="button" key={o.id} onClick={() => go({ page: 'operation', id: o.id })}>
+                  <span className="table-liste-nom">{o.nom}</span>
+                  <small>
+                    {dateFr(o.date)} · {o.marqueurs.length + o.fleches.length} élément(s)
+                  </small>
+                  <div className="table-liste-unites">
+                    {o.unites.map((u) => (
+                      <i key={u.id} style={{ background: couleurPlan(u.couleur) }} />
+                    ))}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <span className="eyebrow">Au poste</span>
+          {poste.length === 0 ? (
+            <p className="muted">Aucun plan publié par les autres agents.</p>
+          ) : (
+            <div className="table-liste">
+              {poste.slice(0, 3).map((o) => (
+                <button type="button" key={o.id} onClick={() => go({ page: 'operation', id: o.id })}>
+                  <span className="table-liste-nom">{o.nom}</span>
+                  <small>{o.auteurNom}</small>
+                </button>
+              ))}
+            </div>
+          )}
+        </aside>
+      </div>
 
       {etat === 'erreur' && (
         <div className="alerte-erreur">

@@ -103,6 +103,10 @@ export interface Marqueur extends PointPlan {
   type: MarqueurType
   texte: string
   uniteId: string | null
+  /** Tout ce qu'on veut savoir en cliquant dessus pendant le briefing. */
+  note?: string
+  /** Un screen : le véhicule, la façade du QG, la porte d'entrée… */
+  image?: string | null
 }
 
 export interface Fleche {

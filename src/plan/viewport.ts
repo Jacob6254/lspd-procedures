@@ -41,6 +41,8 @@ export interface CtrlPlan {
   versEcran(p: PointPlan): { x: number; y: number }
   zoomer(facteur: number): void
   recadrer(): void
+  /** Amène sous les yeux la zone demandée, en coordonnées du plan. */
+  cadrerSur(zone: { x: number; y: number; w: number; h: number }): void
   demarrerPan(e: ReactPointerEvent): void
   /** Vrai quand on ne peut plus agrandir sans perdre en netteté. */
   auMaximum: boolean
@@ -53,7 +55,7 @@ export interface CtrlPlan {
  * `pixelsSource` est la largeur, en pixels de l'image d'origine, de la zone
  * qu'on affiche. Zéro quand il n'y a pas d'image (le tableau d'enquête).
  */
-export function usePlan(ratio: number, pixelsSource = 0): CtrlPlan {
+export function usePlan(ratio: number, pixelsSource = 0, zoomDepart = 1): CtrlPlan {
   const element = useRef<HTMLDivElement | null>(null)
   const [noeud, setNoeud] = useState<HTMLDivElement | null>(null)
   const [boite, setBoite] = useState({ w: 0, h: 0 })
@@ -113,7 +115,8 @@ export function usePlan(ratio: number, pixelsSource = 0): CtrlPlan {
 
     if (!cadrage.current) {
       cadrage.current = true
-      setVue({ x: (boite.w - base) / 2, y: (boite.h - base / ratio) / 2, k: 1 })
+      const k = zoomDepart
+      setVue({ x: (boite.w - base * k) / 2, y: (boite.h - (base / ratio) * k) / 2, k })
       return
     }
     if (avant.base === base && avant.w === boite.w && avant.h === boite.h) return
@@ -125,7 +128,7 @@ export function usePlan(ratio: number, pixelsSource = 0): CtrlPlan {
       }
       return { ...v, x: boite.w / 2 - vise.x * base * v.k, y: boite.h / 2 - vise.y * (base / ratio) * v.k }
     })
-  }, [base, boite.w, boite.h, ratio])
+  }, [base, boite.w, boite.h, ratio, zoomDepart])
 
   const versPlan = useCallback(
     (e: { clientX: number; clientY: number }): PointPlan => {
@@ -182,6 +185,25 @@ export function usePlan(ratio: number, pixelsSource = 0): CtrlPlan {
     })
   }, [])
 
+  const cadrerSur = useCallback(
+    (zone: { x: number; y: number; w: number; h: number }) => {
+      const el = element.current
+      if (!el) return
+      const b = baseRef.current
+      const marge = 1.18
+      const k = Math.min(
+        kMaxRef.current,
+        Math.max(K_MIN, Math.min(el.clientWidth / (zone.w * b * marge), el.clientHeight / (zone.h * (b / ratio) * marge)))
+      )
+      setVue({
+        x: el.clientWidth / 2 - (zone.x + zone.w / 2) * b * k,
+        y: el.clientHeight / 2 - (zone.y + zone.h / 2) * (b / ratio) * k,
+        k
+      })
+    },
+    [ratio]
+  )
+
   const demarrerPan = useCallback((e: ReactPointerEvent) => {
     const depart = { x: e.clientX, y: e.clientY }
     const debut = { ...vueRef.current }
@@ -218,6 +240,7 @@ export function usePlan(ratio: number, pixelsSource = 0): CtrlPlan {
     versEcran,
     zoomer,
     recadrer: () => centrer(1),
+    cadrerSur,
     demarrerPan,
     panEnCours,
     auMaximum: vue.k >= kMax - 0.001,

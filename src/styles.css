@@ -4512,3 +4512,229 @@ kbd {
   color: var(--muted);
   pointer-events: none;
 }
+
+/* Les noms des fils, écrivables d'un clic sur le tableau */
+.fil-nom {
+  position: absolute;
+  z-index: 4;
+  transform: translate(-50%, -50%);
+  background: rgba(8, 11, 20, 0.95);
+  border: 1px solid var(--c);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #e7eaf2;
+  white-space: nowrap;
+  cursor: text;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fil-nom.vide {
+  color: var(--amber);
+  font-style: italic;
+  border-style: dashed;
+}
+.fil-nom.choisi {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.22);
+}
+.fil-nom input {
+  background: none;
+  border: none;
+  color: var(--text);
+  font: inherit;
+  width: 150px;
+  padding: 0;
+  outline: none;
+}
+
+/* Le récapitulatif d'une fiche : la photo en tête */
+.insp-photo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.insp-photo img {
+  width: 100%;
+  max-height: 190px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-2);
+  background: #0a0d16;
+}
+.insp-photo-vide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 108px;
+  border: 1px dashed var(--border-2);
+  border-radius: var(--radius-sm);
+  color: var(--faint);
+  font-size: 11.5px;
+}
+.insp-photo-actions {
+  display: flex;
+  gap: 6px;
+}
+.btn-petit {
+  padding: 4px 9px !important;
+  font-size: 11.5px !important;
+}
+.insp-photo-actions .btn-petit {
+  flex-grow: 1;
+}
+
+/* Marqueurs de la carte : pastille au-dessus, nom dessous, discret */
+.mk {
+  flex-direction: column;
+  gap: 3px;
+}
+.mk-pastille {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  font-size: 9px;
+}
+.mk-photo {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c);
+  border: 1.5px solid #0b0e18;
+}
+.mk-label {
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-left: none;
+  border-top: 2px solid var(--c);
+  font-size: 10.5px;
+  padding: 2px 6px;
+}
+.mk.sans-nom .mk-label {
+  display: none;
+}
+.mk.choisi .mk-label {
+  display: block;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+.btn.eteint {
+  opacity: 0.45;
+}
+
+/* La salle de briefing : la table au centre, de quoi lire de chaque côté */
+.table-scene {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr) 250px;
+  gap: 16px;
+  align-items: stretch;
+  margin-bottom: 22px;
+}
+@media (max-width: 1200px) {
+  .table-scene {
+    grid-template-columns: 1fr;
+  }
+}
+.table-cote {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.table-cote p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.table-cote .eyebrow {
+  margin-top: 2px;
+}
+.table-stats {
+  display: flex;
+  gap: 8px;
+}
+.table-stats div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 9px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+}
+.table-stats strong {
+  font-family: var(--mono);
+  font-size: 17px;
+  line-height: 1.1;
+}
+.table-stats small {
+  font-size: 10px;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.table-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.table-liste button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.table-liste button:hover {
+  border-color: var(--accent-border);
+}
+.table-liste-nom {
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.table-liste small {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.table-liste-unites {
+  display: flex;
+  gap: 3px;
+  margin-top: 3px;
+}
+.table-liste-unites i {
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+}
+.table-briefing {
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.table-plateau {
+  height: 300px;
+}
+.table-carte {
+  width: min(360px, 68%);
+}

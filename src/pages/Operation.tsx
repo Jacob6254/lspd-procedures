@@ -20,6 +20,8 @@ import {
   Plane,
   Plus,
   Share2,
+  Camera,
+  ImagePlus,
   Target,
   Trash,
   Type,
@@ -40,6 +42,7 @@ import { useStore } from '../store'
 import { glisser, usePlan } from '../plan/viewport'
 import { exporterCarte, texteBriefing } from '../plan/export-carte'
 import { copierImage, telechargerImage, type Sortie } from '../plan/dessin'
+import { api, imgUrl } from '../api'
 import { Empty, Field, TextArea, TextInput } from '../components/ui'
 
 const ICONES: Record<string, LucideIcon> = {
@@ -88,6 +91,8 @@ export function OperationPage({ id }: { id: string }) {
   const [fondAbsent, setFondAbsent] = useState(false)
   const [sortieExport, setSortieExport] = useState<{ image: Sortie; texte: string } | null>(null)
   const [occupe, setOccupe] = useState(false)
+  /** Noms des marqueurs : effacés quand ils se gênent, tous, ou aucun. */
+  const [noms, setNoms] = useState<'auto' | 'tous' | 'aucun'>('auto')
 
   const ctrl = usePlan(ratio, pixelsFond)
   const zone = ctrl.cadre
@@ -272,6 +277,20 @@ export function OperationPage({ id }: { id: string }) {
             onClick={() => ctrl.zoomer(1.3)}
           >
             <ZoomIn size={16} />
+          </button>
+          <button
+            type="button"
+            className={`btn btn-ghost btn-icon ${noms === 'aucun' ? 'eteint' : ''}`}
+            title={
+              noms === 'auto'
+                ? 'Noms des marqueurs : effacés quand ils se gênent'
+                : noms === 'tous'
+                  ? 'Noms des marqueurs : tous affichés'
+                  : 'Noms des marqueurs : masqués'
+            }
+            onClick={() => setNoms(noms === 'auto' ? 'tous' : noms === 'tous' ? 'aucun' : 'auto')}
+          >
+            <Type size={16} />
           </button>
         </div>
 
@@ -459,15 +478,35 @@ export function OperationPage({ id }: { id: string }) {
               )}
             </svg>
 
-            {op.marqueurs
-              .filter((m) => visible(m.uniteId))
-              .map((m) => {
+            {(() => {
+              // Les noms s'effacent quand ils se marcheraient dessus : la carte
+              // reste lisible même avec vingt marqueurs au même endroit.
+              const vus = op.marqueurs.filter((m) => visible(m.uniteId))
+              const montres = new Set<string>()
+              if (noms !== 'aucun') {
+                const boites: { x: number; y: number; larg: number; haut: number }[] = []
+                const prioritaire = (m: { id: string }) => (selection?.k === 'marqueur' && selection.id === m.id ? 0 : 1)
+                for (const m of [...vus].sort((a, b) => prioritaire(a) - prioritaire(b))) {
+                  const texte = m.texte.trim() || defMarqueur(m.type).label
+                  const b = { x: m.x * W, y: m.y * H + 28, larg: texte.length * 6.2 + 18, haut: 21 }
+                  const gene = boites.some(
+                    (o) => Math.abs(o.x - b.x) < (o.larg + b.larg) / 2 && Math.abs(o.y - b.y) < (o.haut + b.haut) / 2
+                  )
+                  if (noms === 'tous' || !gene) {
+                    boites.push(b)
+                    montres.add(m.id)
+                  }
+                }
+              }
+
+              return vus.map((m) => {
                 const d = defMarqueur(m.type)
                 const choisi = selection?.k === 'marqueur' && selection.id === m.id
+                const classes = ['mk', choisi ? 'choisi' : '', montres.has(m.id) ? '' : 'sans-nom'].join(' ')
                 return (
                   <div
                     key={m.id}
-                    className={`mk ${choisi ? 'choisi' : ''}`}
+                    className={classes}
                     style={{ left: `${m.x * 100}%`, top: `${m.y * 100}%`, '--c': teinte(m.uniteId) } as CSSProperties}
                     onPointerDown={(e) =>
                       !lecture &&
@@ -480,11 +519,15 @@ export function OperationPage({ id }: { id: string }) {
                       setSelection({ k: 'marqueur', id: m.id })
                     }}
                   >
-                    <span className="mk-pastille">{d.code}</span>
+                    <span className="mk-pastille">
+                      {d.code}
+                      {m.image ? <i className="mk-photo" /> : null}
+                    </span>
                     <span className="mk-label">{m.texte.trim() || d.label}</span>
                   </div>
                 )
-              })}
+              })
+            })()}
 
             {op.etiquettes
               .filter((e) => visible(e.uniteId))
@@ -702,6 +745,17 @@ function Inspecteur({
   onFermer: () => void
 }) {
   const unites = useMemo(() => [{ id: '', nom: 'Aucune unité' }, ...op.unites], [op.unites])
+  const toast = useStore((s) => s.toast)
+  const fichier = useRef<HTMLInputElement | null>(null)
+
+  async function envoyerImage(blob: Blob, marqueurId: string) {
+    try {
+      const ref = await api.saveImage(blob)
+      onChange((o) => ({ ...o, marqueurs: o.marqueurs.map((x) => (x.id === marqueurId ? { ...x, image: ref.file } : x)) }))
+    } catch {
+      toast('error', "L'image n'a pas pu être envoyée.")
+    }
+  }
 
   if (!selection) {
     return (
@@ -752,6 +806,44 @@ function Inspecteur({
 
       {marqueur && (
         <>
+          <div className="insp-photo">
+            {marqueur.image ? (
+              <img src={imgUrl(marqueur.image)} alt="" />
+            ) : (
+              <div className="insp-photo-vide">
+                <Camera size={22} />
+                <span>Pas de screen</span>
+              </div>
+            )}
+            {!lecture && (
+              <div className="insp-photo-actions">
+                <button type="button" className="btn btn-petit" onClick={() => fichier.current?.click()}>
+                  <ImagePlus size={14} /> {marqueur.image ? 'Changer' : 'Ajouter un screen'}
+                </button>
+                {marqueur.image && (
+                  <button
+                    type="button"
+                    className="btn btn-petit btn-ghost"
+                    onClick={() => onChange((o) => ({ ...o, marqueurs: o.marqueurs.map((x) => (x.id === marqueur.id ? { ...x, image: null } : x)) }))}
+                  >
+                    <X size={14} /> Retirer
+                  </button>
+                )}
+              </div>
+            )}
+            <input
+              ref={fichier}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) void envoyerImage(f, marqueur.id)
+                e.target.value = ''
+              }}
+            />
+          </div>
+
           <Field label="Ce qu'on écrit à côté">
             <TextInput
               value={marqueur.texte}
@@ -776,6 +868,14 @@ function Inspecteur({
                 </option>
               ))}
             </select>
+          </Field>
+          <Field label="Détail" hint="Ce qu'on veut savoir en cliquant dessus pendant le briefing.">
+            <TextArea
+              value={marqueur.note ?? ''}
+              onChange={(v) => onChange((o) => ({ ...o, marqueurs: o.marqueurs.map((x) => (x.id === marqueur.id ? { ...x, note: v } : x)) }))}
+              rows={5}
+              placeholder="Deux agents en poste, porte blindée côté ruelle, caméra à l'angle."
+            />
           </Field>
         </>
       )}
