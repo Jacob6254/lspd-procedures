@@ -484,7 +484,13 @@ export function OperationPage({ id }: { id: string }) {
               const vus = op.marqueurs.filter((m) => visible(m.uniteId))
               const montres = new Set<string>()
               if (noms !== 'aucun') {
-                const boites: { x: number; y: number; larg: number; haut: number }[] = []
+                // Une pastille est un obstacle : un nom ne doit pas la recouvrir.
+                const boites: { x: number; y: number; larg: number; haut: number }[] = vus.map((m) => ({
+                  x: m.x * W,
+                  y: m.y * H,
+                  larg: 30,
+                  haut: 30
+                }))
                 const prioritaire = (m: { id: string }) => (selection?.k === 'marqueur' && selection.id === m.id ? 0 : 1)
                 for (const m of [...vus].sort((a, b) => prioritaire(a) - prioritaire(b))) {
                   const texte = m.texte.trim() || defMarqueur(m.type).label
@@ -501,6 +507,7 @@ export function OperationPage({ id }: { id: string }) {
 
               return vus.map((m) => {
                 const d = defMarqueur(m.type)
+                const Icone = ICONES[d.icone] ?? MapPin
                 const choisi = selection?.k === 'marqueur' && selection.id === m.id
                 const classes = ['mk', choisi ? 'choisi' : '', montres.has(m.id) ? '' : 'sans-nom'].join(' ')
                 return (
@@ -519,8 +526,8 @@ export function OperationPage({ id }: { id: string }) {
                       setSelection({ k: 'marqueur', id: m.id })
                     }}
                   >
-                    <span className="mk-pastille">
-                      {d.code}
+                    <span className="mk-pastille" title={d.label}>
+                      <Icone size={15} strokeWidth={2.2} />
                       {m.image ? <i className="mk-photo" /> : null}
                     </span>
                     <span className="mk-label">{m.texte.trim() || d.label}</span>

@@ -1,3 +1,5 @@
+import { DESSIN_ICONES } from './icones-marqueurs'
+
 /** Les outils de dessin partagés par l'export de la carte et celui du tableau. */
 
 export interface Sortie {
@@ -123,8 +125,39 @@ export function fleche(ctx: CanvasRenderingContext2D, points: { x: number; y: nu
   ctx.fill()
 }
 
-/** Pastille d'un marqueur : disque teinté, liseré clair, sigle au centre. */
-export function pastille(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, couleur: string, code: string): void {
+/** L'icône d'un marqueur, en image, pour pouvoir la poser sur une toile. */
+const cacheIcones = new Map<string, Promise<HTMLImageElement | null>>()
+
+export function icone(nom: string, couleur: string): Promise<HTMLImageElement | null> {
+  const cle = `${nom}|${couleur}`
+  const dejaLa = cacheIcones.get(cle)
+  if (dejaLa) return dejaLa
+  const formes = DESSIN_ICONES[nom] ?? []
+  const corps = formes
+    .map(([balise, attrs]) => {
+      const a = Object.entries(attrs)
+        .filter(([k]) => k !== 'key')
+        .map(([k, v]) => `${k}="${v}"`)
+        .join(' ')
+      return `<${balise} ${a} />`
+    })
+    .join('')
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${couleur}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${corps}</svg>`
+  const promesse = chargerImage(`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`)
+  cacheIcones.set(cle, promesse)
+  return promesse
+}
+
+/** Pastille d'un marqueur : disque teinté, liseré clair, icône au centre. */
+export function pastille(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  r: number,
+  couleur: string,
+  code: string,
+  dessin?: HTMLImageElement | null
+): void {
   ctx.beginPath()
   ctx.arc(x, y, r, 0, Math.PI * 2)
   ctx.fillStyle = 'rgba(8, 11, 20, 0.88)'
@@ -133,6 +166,11 @@ export function pastille(ctx: CanvasRenderingContext2D, x: number, y: number, r:
   ctx.lineWidth = Math.max(2, r * 0.16)
   ctx.stroke()
 
+  if (dessin) {
+    const t = r * 1.12
+    ctx.drawImage(dessin, x - t / 2, y - t / 2, t, t)
+    return
+  }
   ctx.fillStyle = couleur
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'

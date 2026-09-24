@@ -2,7 +2,7 @@ import type { Operation } from '@shared/operation'
 import { cardinal, defMarqueur, fondCarte, uniteDe } from '@shared/operation'
 import { couleurPlan } from '@shared/plan'
 import { dateFr, heureFr } from '../lib/format'
-import { chargerImage, couperTexte, fleche, pastille, plaque, sortie, type Sortie } from './dessin'
+import { chargerImage, couperTexte, fleche, icone, pastille, plaque, sortie, type Sortie } from './dessin'
 
 const LARGEUR_MAX = 2000
 const BANDEAU = 96
@@ -77,14 +77,30 @@ export async function exporterCarte(op: Operation): Promise<Sortie> {
 
   const r = Math.max(14, 20 * ech)
   const vus = op.marqueurs.filter((m) => visible(op, m.uniteId))
+  const dessins = new Map<string, HTMLImageElement | null>()
+  await Promise.all(
+    vus.map(async (m) => {
+      const c = teinte(op, m.uniteId)
+      const cle = `${m.type}|${c}`
+      if (dessins.has(cle)) return
+      dessins.set(cle, await icone(defMarqueur(m.type).icone, c))
+    })
+  )
   for (const m of vus) {
-    pastille(ctx, px(m.x), py(m.y), r, teinte(op, m.uniteId), defMarqueur(m.type).code)
+    const c = teinte(op, m.uniteId)
+    pastille(ctx, px(m.x), py(m.y), r, c, defMarqueur(m.type).code, dessins.get(`${m.type}|${c}`))
   }
 
   // Les noms se posent sous la pastille, et sautent ceux qui se gêneraient.
   const policeNom = `600 ${Math.round(15 * ech)}px Archivo, sans-serif`
   const hNom = 26 * ech
-  const posees: { x: number; y: number; larg: number; haut: number }[] = []
+  // Les pastilles comptent aussi comme obstacles : un nom ne doit pas en couvrir une.
+  const posees: { x: number; y: number; larg: number; haut: number }[] = vus.map((m) => ({
+    x: px(m.x),
+    y: py(m.y),
+    larg: r * 2.1,
+    haut: r * 2.1
+  }))
   ctx.font = policeNom
   for (const m of vus) {
     const c = teinte(op, m.uniteId)

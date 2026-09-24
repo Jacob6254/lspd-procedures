@@ -4738,3 +4738,31 @@ kbd {
 .table-carte {
   width: min(360px, 68%);
 }
+
+/* L'icône du marqueur, à la place du sigle */
+.mk-pastille {
+  width: 28px;
+  height: 28px;
+  color: var(--c);
+}
+.mk-pastille svg {
+  display: block;
+}
+
+/* La maquette ne déborde plus de sa table */
+.table-plateau {
+  height: 320px;
+  padding: 0 10%;
+  align-items: center;
+}
+.table-carte {
+  width: min(290px, 58%);
+  transform: perspective(1500px) rotateX(46deg);
+}
+.table-briefing:hover .table-carte {
+  transform: perspective(1500px) rotateX(41deg) scale(1.02);
+}
+.table-legende {
+  position: relative;
+  z-index: 2;
+}
