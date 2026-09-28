@@ -333,12 +333,9 @@ export function checkSuspect(i: Intervention, s: Suspect, settings: Settings, we
     add('error', 'commun', 'Tu n’as pas dit comment le suspect a été intercepté.')
   }
 
-  if (!s.prenom.trim() || !s.nom.trim()) add('error', 'identite', 'Nom ou prénom du suspect manquant.')
-  if (s.identite.length === 0) add('warn', 'identite', 'Pas de screen de la carte d’identité.')
-  if (s.recherche === null) add('warn', 'identite', 'Avis de recherche non vérifié.')
-  if (s.bracelet === null) add('warn', 'identite', 'Bracelet non vérifié.')
+  if (!s.prenom.trim() || !s.nom.trim()) add('error', 'fouille', 'Nom ou prénom du mis en cause manquant.')
+  if (s.recherche === null) add('warn', 'fouille', 'Avis de recherche non vérifié.')
 
-  if (!s.mirandaLusA) add('warn', 'miranda', 'Droits Miranda pas marqués comme lus.')
 
   if (s.fouilleScreens.length === 0) add('warn', 'fouille', 'Pas de screen de l’inventaire.')
   if (s.saisies.length === 0 && !s.rienSurLui) add('error', 'fouille', 'Fouille non renseignée (objets saisis ou « rien sur lui »).')
@@ -348,7 +345,7 @@ export function checkSuspect(i: Intervention, s: Suspect, settings: Settings, we
     if (!x.quantite || x.quantite <= 0) add('error', 'fouille', `Quantité manquante pour ${name}.`)
   }
   const hasPpaWeapon = s.saisies.some((x) => x.weaponId && weapons.get(x.weaponId)?.status === 'ppa')
-  if (hasPpaWeapon && s.ppa === null) add('warn', 'identite', 'Arme soumise au PPA saisie : vérifie son PPA.')
+  if (hasPpaWeapon && s.ppa === null) add('warn', 'fouille', 'Arme soumise au PPA saisie : vérifie son PPA.')
 
   if (s.cooperation === null) add('warn', 'comportement', 'Coopérativité non renseignée.')
   if (s.outrage && !s.outragePhrase.trim()) add('error', 'comportement', 'Outrage retenu : il manque la phrase exacte.')

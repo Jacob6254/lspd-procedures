@@ -459,7 +459,7 @@ export function NegociationPage({ id }: { id: string }) {
         <div>
           <strong>Rapport officiel de négociation</strong>
           <span>
-            Document LSPD — Mission Row, prêt à envoyer dans le salon de négociation. Les screens que tu as collés sont dessinés dedans.
+            Document LSPD prêt à envoyer dans le salon de négociation. Les screens que tu as collés sont dessinés dedans.
           </span>
         </div>
         <button type="button" className="btn btn-primary btn-lg" disabled={busy} onClick={() => void generer()}>

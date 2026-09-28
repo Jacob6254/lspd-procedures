@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import {
   AlertTriangle,
-  CheckCircle2,
   CircleAlert,
   ClipboardCopy,
   ClipboardList,
@@ -10,6 +9,7 @@ import {
   ListChecks,
   Fingerprint,
   Lock,
+  CheckCircle2,
   Gavel,
   IdCard,
   MessageSquareWarning,
@@ -22,7 +22,7 @@ import {
   UserRound
 } from 'lucide-react'
 import type { Intervention, Settings, Suspect } from '@shared/types'
-import { type StepKey, interventionImages, interventionTitle, suspectName, useStore } from '../store'
+import { type StepKey, interventionTitle, suspectName, useStore } from '../store'
 import { COMPORTEMENTS, COOPERATION, REPORT_LIMIT, SAISIE_GROUPS, type Check, checkSuspect, generateReport, stepState } from '../report'
 import { CATEGORIES, INFRACTIONS, accusationSuggestions, gavFr, montantFr, totalPeine } from '../data/infractions'
 import { CHECKLIST, CHECKLIST_TOTAL } from '../data/checklist'
@@ -41,17 +41,14 @@ import {
 } from '../data/phrases'
 import { legalityFor, legalityLabel, legalityTone, useWeaponsLoaded } from '../weapons'
 import { dateFr, heureFr, money, nowHm, todayIso } from '../lib/format'
-import { Badge, ChipsInput, ConfirmButton, Empty, Field, PageHeader, Panel, PhrasesRapides, Segmented, TextArea, TextInput, Toggle } from '../components/ui'
-import { Lightbox, ScreenSlot } from '../components/ScreenSlot'
-import { api, imgUrl } from '../api'
+import { Badge, ChipsInput, ConfirmButton, Field, PageHeader, Panel, PhrasesRapides, Segmented, TextArea, TextInput, Toggle } from '../components/ui'
+import { api } from '../api'
 import { SaisiesEditor } from '../components/SaisiesEditor'
 
 const STEPS: { key: StepKey; label: string; icon: typeof IdCard }[] = [
-  { key: 'identite', label: 'Identité', icon: IdCard },
-  { key: 'fouille', label: 'Fouille', icon: PackageSearch },
+  { key: 'fouille', label: 'Fouille & saisies', icon: PackageSearch },
   { key: 'comportement', label: 'Comportement & accusations', icon: Scale },
   { key: 'rapport', label: 'Rapport', icon: FileText },
-  { key: 'miranda', label: 'Droits Miranda', icon: MessageSquareWarning },
   { key: 'fiche', label: 'Fiche résumé', icon: ClipboardList }
 ]
 
@@ -68,14 +65,13 @@ export function DossierPage(props: { id: string; tab: string; step: StepKey }) {
   if (!intervention) return null
   const i = intervention
   const suspect = i.suspects.find((s) => s.id === props.tab)
-  const screens = interventionImages(i).length
 
   return (
     <div className="page">
       <PageHeader
         icon={Siren}
         title={interventionTitle(i)}
-        subtitle={`Intervention du ${dateFr(i.date)} à ${heureFr(i.heure)} · ${i.suspects.length} suspect${i.suspects.length > 1 ? 's' : ''} · ${screens} screen${screens > 1 ? 's' : ''}`}
+        subtitle={`Intervention du ${dateFr(i.date)} à ${heureFr(i.heure)} · ${i.suspects.length} suspect${i.suspects.length > 1 ? 's' : ''}`}
         right={
           <>
             {i.statut === 'en_cours' ? (
@@ -104,7 +100,7 @@ export function DossierPage(props: { id: string; tab: string; step: StepKey }) {
               type="button"
               key={s.id}
               className={`tab ${props.tab === s.id ? 'active' : ''}`}
-              onClick={() => openDossier(i.id, s.id, props.tab === 'commun' ? 'identite' : props.step)}
+              onClick={() => openDossier(i.id, s.id, props.tab === 'commun' ? 'fouille' : props.step)}
             >
               <UserRound size={15} /> {suspectName(s)}
               {errors > 0 && <span className="tab-count">{errors}</span>}
@@ -450,7 +446,7 @@ function CommunForm({ intervention: i, settings }: { intervention: Intervention;
         <Panel title="Suspects">
           <div className="stack gap-8">
             {i.suspects.map((s) => (
-              <button type="button" key={s.id} className="list-row" onClick={() => openDossier(i.id, s.id, 'identite')}>
+              <button type="button" key={s.id} className="list-row" onClick={() => openDossier(i.id, s.id, 'fouille')}>
                 <UserRound size={16} />
                 <span>{suspectName(s)}</span>
                 <small>{s.saisies.length} saisie{s.saisies.length > 1 ? 's' : ''}</small>
@@ -499,15 +495,13 @@ function SuspectView(props: { intervention: Intervention; suspect: Suspect; step
             icon={Trash2}
             className="steps-remove"
             label="Retirer ce suspect"
-            confirmLabel="Retirer + ses screens ?"
+            confirmLabel="Retirer ce suspect ?"
             onConfirm={() => removeSuspect(i.id, s.id)}
           />
         )}
       </aside>
 
       <div className="step-body">
-        {step === 'identite' && <IdentiteStep i={i} s={s} set={set} />}
-        {step === 'miranda' && <MirandaStep i={i} s={s} set={set} />}
         {step === 'fouille' && <FouilleStep i={i} s={s} set={set} />}
         {step === 'comportement' && <ComportementStep s={s} set={set} />}
         {step === 'rapport' && <RapportStep i={i} s={s} set={set} checks={checks} />}
@@ -540,10 +534,10 @@ function deVehicule(v: string): string {
 export type SetSuspect = (p: Partial<Suspect> | ((cur: Suspect) => Partial<Suspect>)) => void
 type StepProps = { i: Intervention; s: Suspect; set: SetSuspect }
 
-function IdentiteStep({ i, s, set }: StepProps) {
+function FouilleStep({ s, set }: StepProps) {
   return (
-    <div className="dossier-grid">
-      <Panel title="Fiche suspect" icon={IdCard}>
+    <div className="stack">
+      <Panel title="Le mis en cause" icon={IdCard} right={<span className="muted small">Ce que le rapport reprend</span>}>
         <div className="form-grid">
           <Field label="Civilité" wide>
             <Segmented
@@ -556,15 +550,11 @@ function IdentiteStep({ i, s, set }: StepProps) {
             />
           </Field>
           <Field label="Prénom">
-            <TextInput value={s.prenom} onChange={(v) => set({ prenom: v })} placeholder="zepekenio" />
+            <TextInput value={s.prenom} onChange={(v) => set({ prenom: v })} placeholder="John" />
           </Field>
           <Field label="Nom">
-            <TextInput value={s.nom} onChange={(v) => set({ nom: v })} placeholder="lazit" />
+            <TextInput value={s.nom} onChange={(v) => set({ nom: v })} placeholder="DOE" />
           </Field>
-          <Field label="Date de naissance">
-            <TextInput type="date" value={s.naissance} onChange={(v) => set({ naissance: v })} />
-          </Field>
-          <span />
           <Field label="Avis de recherche en cours ?">
             <Segmented
               tone="yesno"
@@ -576,7 +566,7 @@ function IdentiteStep({ i, s, set }: StepProps) {
               ]}
             />
           </Field>
-          <Field label="Bracelet électronique ?">
+          <Field label="Bracelet électronique ?" hint="Le rapport le mentionne dans les effets personnels.">
             <Segmented
               tone="yesno"
               value={s.bracelet}
@@ -601,79 +591,6 @@ function IdentiteStep({ i, s, set }: StepProps) {
             />
           </Field>
         </div>
-      </Panel>
-      <div className="stack">
-        <Panel>
-          <ScreenSlot
-            target={{ dossierId: i.id, sousId: s.id, slot: 'identite' }}
-            images={s.identite}
-            title="Carte d’identité"
-            hint="Le screen de sa carte d’identité"
-          />
-        </Panel>
-      </div>
-    </div>
-  )
-}
-
-function useClock(): Date {
-  const [now, setNow] = useState(() => new Date())
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 15000)
-    return () => clearInterval(t)
-  }, [])
-  return now
-}
-
-function MirandaStep({ i, s, set }: StepProps) {
-  const now = useClock()
-
-  return (
-    <div className="stack">
-      <div className="miranda">
-        <p className="miranda-lead">
-          « {s.civilite === 'Mme' ? 'Madame' : 'Monsieur'}, nous sommes le {dateFr(todayIso(now))}. Il est {heureFr(nowHm(now))}. Vous êtes
-          placé{s.civilite === 'Mme' ? 'e' : ''} en état d’arrestation. »
-        </p>
-        <ol className="miranda-list">
-          <li>« Je vous informe que vous avez le droit de garder le silence. »</li>
-          <li>« Tout ce que vous direz pourra être retenu et utilisé contre vous devant un tribunal. »</li>
-          <li>« Vous avez le droit de consulter un avocat et de bénéficier de sa présence lors de votre interrogatoire. »</li>
-          <li>« Si vous n’avez pas les moyens d’en payer un, un avocat vous sera commis d’office. »</li>
-          <li>« Vous avez également le droit de demander à boire et à manger pendant votre garde à vue, ainsi que le droit de passer un appel. »</li>
-        </ol>
-        <div className="miranda-ask">
-          <span className="eyebrow">À demander au mis en cause</span>
-          <p>« Avez-vous compris vos droits ? »</p>
-          <p>« Souhaitez-vous faire usage de vos droits ? »</p>
-        </div>
-        <div className="miranda-foot">
-          <span>Les droits doivent être notifiés dès l’interpellation et avant toute audition.</span>
-          {s.mirandaLusA ? (
-            <button type="button" className="btn btn-success" onClick={() => set({ mirandaLusA: null })}>
-              <CheckCircle2 size={15} /> Droits lus à {s.mirandaLusA}
-            </button>
-          ) : (
-            <button type="button" className="btn btn-primary" onClick={() => set({ mirandaLusA: heureFr(nowHm()) })}>
-              <CheckCircle2 size={15} /> J’ai lu ses droits
-            </button>
-          )}
-        </div>
-      </div>
-      <p className="muted small">Intervention : {interventionTitle(i)}</p>
-    </div>
-  )
-}
-
-function FouilleStep({ i, s, set }: StepProps) {
-  return (
-    <div className="stack">
-      <Panel title="Screens de l’inventaire" icon={PackageSearch}>
-        <ScreenSlot
-          target={{ dossierId: i.id, sousId: s.id, slot: 'fouilleScreens' }}
-          images={s.fouilleScreens}
-          title="Inventaire (individu + sac)"
-        />
       </Panel>
       <Panel title="Objets saisis" icon={Gavel} right={<span className="muted small">Tout ce qui est illégal, avec la quantité exacte</span>}>
         <SaisiesEditor suspect={s} onChange={set} />
@@ -822,7 +739,7 @@ function RapportStep({ i, s, set, checks }: StepProps & { checks: Check[] }) {
           <ul className="checks">
             {[...errors, ...warns].map((c, n) => (
               <li key={n}>
-                <button type="button" className={`check check-${c.level}`} onClick={() => openDossier(i.id, c.step === 'commun' ? 'commun' : s.id, c.step === 'commun' ? 'identite' : c.step)}>
+                <button type="button" className={`check check-${c.level}`} onClick={() => openDossier(i.id, c.step === 'commun' ? 'commun' : s.id, c.step === 'commun' ? 'fouille' : c.step)}>
                   {c.level === 'error' ? <AlertTriangle size={15} /> : <CircleAlert size={15} />}
                   {c.text}
                 </button>
@@ -845,10 +762,7 @@ function FicheStep({ i, s, set }: StepProps) {
   const settings = useStore((st) => st.db.settings)
   const toast = useStore((st) => st.toast)
   const { byId } = useWeaponsLoaded()
-  const [viewer, setViewer] = useState<number | null>(null)
   const texte = s.rapportManuel ?? generateReport(i, s, settings, byId)
-  const screens = [...s.identite, ...s.fouilleScreens]
-  const age = s.naissance ? Math.floor((Date.now() - new Date(s.naissance).getTime()) / 31_557_600_000) : null
   const groupes = SAISIE_GROUPS.map((g) => ({ ...g, items: s.saisies.filter((x) => x.type === g.type) })).filter((g) => g.items.length)
   const peine = totalPeine(s.accusations)
   const coop = COOPERATION.find((c) => c.key === s.cooperation)
@@ -862,10 +776,6 @@ function FicheStep({ i, s, set }: StepProps) {
           <strong>{s.nom || 'Sans nom'}</strong>
         </div>
         <dl className="fiche-rows">
-          <div>
-            <dt>Naissance</dt>
-            <dd>{s.naissance ? `${dateFr(s.naissance)}${age !== null ? ` (${age} ans)` : ''}` : '—'}</dd>
-          </div>
           <div>
             <dt>Recherché</dt>
             <dd className={s.recherche === 'oui' ? 'c-red' : ''}>{s.recherche === null ? 'Non vérifié' : s.recherche === 'oui' ? 'Oui' : 'Non'}</dd>
@@ -881,10 +791,6 @@ function FicheStep({ i, s, set }: StepProps) {
           <div>
             <dt>Coopérativité</dt>
             <dd>{coop ? coop.label.charAt(0).toUpperCase() + coop.label.slice(1) : '—'}</dd>
-          </div>
-          <div>
-            <dt>Droits lus</dt>
-            <dd className={s.mirandaLusA ? 'c-green' : 'c-amber'}>{s.mirandaLusA ?? 'Non'}</dd>
           </div>
         </dl>
         <div className="fiche-total">
@@ -986,25 +892,7 @@ function FicheStep({ i, s, set }: StepProps) {
             </span>
           </div>
         </Panel>
-
-        <Panel title={`Screens de la procédure (${screens.length})`}>
-          {screens.length === 0 ? (
-            <Empty icon={ClipboardList} title="Aucun screen" />
-          ) : (
-            <div className="slot-grid">
-              {screens.map((img, idx) => (
-                <button type="button" key={img.id} className="thumb" onClick={() => setViewer(idx)}>
-                  <img src={imgUrl(img.file)} alt="" loading="lazy" />
-                </button>
-              ))}
-            </div>
-          )}
-        </Panel>
       </div>
-
-      {viewer !== null && screens[viewer] && (
-        <Lightbox images={screens} index={viewer} onIndex={setViewer} onClose={() => setViewer(null)} />
-      )}
 
       <div className="fiche-checklist">
         <Checklist s={s} set={set} />

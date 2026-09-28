@@ -6,10 +6,9 @@ import { ApiError, api } from './api'
 
 const deleteImageFile = (file: string) => void api.deleteImage(file).catch(() => undefined)
 
-export type StepKey = 'identite' | 'miranda' | 'fouille' | 'comportement' | 'rapport' | 'fiche'
-/** Les seuls screens encore demandés : la carte d'identité et l'inventaire, plus ceux de la négociation. */
-export type SlotKey = 'identite' | 'fouilleScreens' | 'negoSuspects' | 'negoVehicule' | 'negoOtage'
-export type SuspectSlot = 'identite' | 'fouilleScreens'
+export type StepKey = 'fouille' | 'comportement' | 'rapport' | 'fiche'
+/** Les seuls screens encore demandés : ceux de la négociation. */
+export type SlotKey = 'negoSuspects' | 'negoVehicule' | 'negoOtage'
 
 export type Route =
   | { page: 'accueil' }
@@ -20,11 +19,7 @@ export type Route =
   | { page: 'supervision' }
   | { page: 'negociations' }
   | { page: 'negociation'; id: string }
-  | { page: 'nego-guide' }
-  | { page: 'operations' }
-  | { page: 'operation'; id: string }
-  | { page: 'enquetes' }
-  | { page: 'enquete'; id: string }
+  | { page: 'modele' }
   | { page: 'guide'; id: string }
   | { page: 'reglages' }
 
@@ -43,20 +38,9 @@ export interface Toast {
 }
 
 export const SLOT_LABELS: Record<SlotKey, string> = {
-  identite: "Carte d'identité",
-  fouilleScreens: 'Inventaire',
   negoSuspects: 'Photos des suspects',
   negoVehicule: 'Plaque du véhicule',
   negoOtage: "Carte d'identité de l'otage"
-}
-
-export const STEP_DEFAULT_SLOT: Record<StepKey, SuspectSlot> = {
-  identite: 'identite',
-  miranda: 'fouilleScreens',
-  fouille: 'fouilleScreens',
-  comportement: 'fouilleScreens',
-  rapport: 'fouilleScreens',
-  fiche: 'fouilleScreens'
 }
 
 /** Matricule choisi à l'inscription, repris dans les réglages au premier chargement. */
@@ -219,12 +203,6 @@ function touch(i: Intervention, patch: Partial<Intervention>): Intervention {
   return { ...i, ...patch, updatedAt: new Date().toISOString() }
 }
 
-export function getSlot(i: Intervention, target: CaptureTarget): ImageRef[] | null {
-  if (target.slot !== 'identite' && target.slot !== 'fouilleScreens') return null
-  const s = i.suspects.find((x) => x.id === target.sousId)
-  return s ? s[target.slot] : null
-}
-
 export function negociationImages(n: Negociation): ImageRef[] {
   return [...n.photosSuspects, ...n.vehicules.flatMap((v) => v.photos), ...n.otages.flatMap((o) => o.identite)]
 }
@@ -295,16 +273,11 @@ export const useStore = create<State>((set, get) => ({
   },
 
   go(route) {
-    // En quittant un dossier, on oublie la zone visée pour ne pas y envoyer un screen par erreur.
-    set({ route, ...(route.page === 'dossier' ? {} : { captureTarget: null }) })
-    if (route.page === 'dossier') {
-      const i = get().db.interventions.find((x) => x.id === route.id)
-      if (!i || route.tab === 'commun') return
-      set({ captureTarget: { dossierId: i.id, sousId: route.tab, slot: STEP_DEFAULT_SLOT[route.step] } })
-    }
+    // On oublie la zone visée : un screen ne doit jamais partir dans la mauvaise.
+    set({ route, captureTarget: null })
   },
 
-  openDossier(id, tab = 'commun', step = 'identite') {
+  openDossier(id, tab = 'commun', step = 'fouille') {
     get().go({ page: 'dossier', id, tab, step })
   },
 
@@ -334,7 +307,7 @@ export const useStore = create<State>((set, get) => ({
   addSuspect(interventionId) {
     const s = newSuspect()
     get().updateIntervention(interventionId, (i) => ({ suspects: [...i.suspects, s] }))
-    get().openDossier(interventionId, s.id, 'identite')
+    get().openDossier(interventionId, s.id, 'fouille')
   },
 
   removeSuspect(interventionId, suspectId) {
@@ -358,15 +331,8 @@ export const useStore = create<State>((set, get) => ({
       get().toast('error', 'Clique d’abord sur la zone où doit aller le screen.')
       return ''
     }
-    if (target.slot === 'identite' || target.slot === 'fouilleScreens') {
-      const slot = target.slot
-      const i = get().db.interventions.find((x) => x.id === target.dossierId)
-      if (!i || !getSlot(i, target)) return ''
-      get().updateSuspect(i.id, target.sousId!, (s) => ({ [slot]: [...s[slot], img] }))
-      const s = i.suspects.find((x) => x.id === target.sousId)
-      return s ? `${SLOT_LABELS[slot]} · ${suspectName(s)}` : SLOT_LABELS[slot]
-    }
-    // Négociation : photos des suspects, plaques et cartes d'identité des otages.
+    // Les screens ne servent plus que dans les négociations : photos des
+    // suspects, plaques des véhicules, cartes d'identité des otages.
     const n = get().db.negociations?.find((x) => x.id === target.dossierId)
     if (!n) return ''
     if (target.slot === 'negoSuspects') {
@@ -384,16 +350,6 @@ export const useStore = create<State>((set, get) => ({
   },
 
   removeImage(target, imgId) {
-    if (target.slot === 'identite' || target.slot === 'fouilleScreens') {
-      const slot = target.slot
-      const i = get().db.interventions.find((x) => x.id === target.dossierId)
-      const s = i?.suspects.find((x) => x.id === target.sousId)
-      const img = s?.[slot].find((x) => x.id === imgId)
-      if (!img) return
-      deleteImageFile(img.file)
-      get().updateSuspect(target.dossierId, target.sousId!, (cur) => ({ [slot]: cur[slot].filter((x) => x.id !== imgId) }))
-      return
-    }
     const n = get().db.negociations?.find((x) => x.id === target.dossierId)
     if (!n) return
     const img = negociationImages(n).find((x) => x.id === imgId)

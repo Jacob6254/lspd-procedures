@@ -166,7 +166,7 @@ function enTetePremierePage(
   texteEspace(ctx, titre, (L - lt) / 2 + 40, MARGE + 52, 2.5)
 
   ctx.font = `26px ${MACHINE}`
-  const sous = 'Mission Row'
+  const sous = 'Los Santos'
   const ls = largeurEspacee(ctx, sous, 3)
   texteEspace(ctx, sous, (L - ls) / 2 + 40, MARGE + 88, 3)
 
@@ -189,7 +189,7 @@ function enTetePremierePage(
   ctx.textAlign = 'center'
   ctx.fillText('POLICE  DEPARTMENT', bx + bw / 2, by + 23)
   ctx.font = `17px ${SERIF}`
-  ctx.fillText('Mission Row Station', bx + bw / 2, by + 50)
+  ctx.fillText('Los Santos Police Department', bx + bw / 2, by + 50)
 
   // Quatre cases de référence
   const cy2 = by + 56
@@ -242,7 +242,7 @@ function enTetePremierePage(
   const grade = settings.grade?.trim() || 'Officer'
   const nom = `${settings.prenom?.trim() ?? ''} ${settings.nom?.trim() ?? ''}`.trim() || settings.nomAgent || '—'
   ctx.font = `17px ${SERIF}`
-  ctx.fillText(`${grade} ${nom}, affecté à la Division Metro, Patrol of Area Mission Row.`, MARGE, y)
+  ctx.fillText(`${grade} ${nom}, Los Santos Police Department.`, MARGE, y)
 
   y += 26
   ligneH(ctx, y)
@@ -288,7 +288,7 @@ function enTeteSuite(ctx: CanvasRenderingContext2D, numeroCase: string, page: nu
   const lt = largeurEspacee(ctx, titre, 1.5)
   texteEspace(ctx, titre, (L - lt) / 2 + 20, MARGE + 28, 1.5)
   ctx.font = `16px ${MACHINE}`
-  const sous = 'Mission Row'
+  const sous = 'Los Santos'
   const ls = largeurEspacee(ctx, sous, 2)
   texteEspace(ctx, sous, (L - ls) / 2 + 20, MARGE + 52, 2)
 
@@ -546,7 +546,7 @@ export async function genererRapportNego(n: Negociation, settings: Settings, num
       ctx.font = `italic 13px ${SERIF}`
       ctx.fillStyle = '#444'
       ctx.textAlign = 'left'
-      ctx.fillText('Los Santos Police Department — Mission Row', gauche, haut + bh - 14)
+      ctx.fillText('Los Santos Police Department', gauche, haut + bh - 14)
       ctx.textAlign = 'right'
       ctx.fillText(`Dossier ${numeroCase} · feuillet ${page} / ${total}`, droite, haut + bh - 14)
       ctx.textAlign = 'left'
@@ -581,7 +581,7 @@ export function texteRapportNego(n: Negociation, settings: Settings, numeroCase:
   const nom = `${settings.prenom?.trim() ?? ''} ${settings.nom?.trim() ?? ''}`.trim() || settings.nomAgent || '—'
   const l: string[] = []
 
-  l.push('**LOS SANTOS POLICE DEPARTMENT — MISSION ROW**')
+  l.push('**LOS SANTOS POLICE DEPARTMENT**')
   l.push(`**RAPPORT DE NÉGOCIATION** · Dossier ${numeroCase} · ${dateFr(n.date)} à ${heureFr(n.heure)}`)
   l.push(`Rédacteur : ${grade} ${nom}${settings.specialisation?.trim() ? ` — ${settings.specialisation.trim()}` : ''}`)
   l.push('')

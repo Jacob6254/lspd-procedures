@@ -1,4 +1,4 @@
-/** Codes radio du L.S.P.D Mission Row. */
+/** Codes radio du L.S.P.D. */
 export type CodeGroupe = 'Code 10' | 'Code d’affiliation' | 'Code de priorité' | 'Zone géographique'
 
 export interface CodeRadio {

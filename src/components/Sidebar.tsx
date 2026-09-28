@@ -1,22 +1,4 @@
-import {
-  BookOpen,
-  Crosshair,
-  Eye,
-  FileText,
-  Handshake,
-  Home,
-  LogOut,
-  Map as MapIcon,
-  Network,
-  Plane,
-  Plus,
-  Radio,
-  ScrollText,
-  Settings,
-  ShieldCheck,
-  Target,
-  Truck
-} from 'lucide-react'
+import { ClipboardList, Crosshair, Eye, FileText, Handshake, Home, LogOut, Plus, Radio, ScrollText, Settings } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { type Route, interventionTitle, negociationTitre, suspectName, useSaveStatus, useStore } from '../store'
 import { useAuth } from '../auth'
@@ -53,7 +35,6 @@ export function Sidebar() {
       <div className="brand">
         <img className="brand-logo" src="/lspdlogo.webp" alt="Écusson du Los Santos Police Department" width="68" height="68" />
         <strong>L.S.P.D Procédures</strong>
-        <span>MISSION ROW</span>
       </div>
 
       <nav className="nav">
@@ -80,6 +61,7 @@ export function Sidebar() {
         ))}
 
         <NavItem icon={FileText} label="Mes procédures" active={is('historique')} onClick={() => go({ page: 'historique' })} />
+        <NavItem icon={ClipboardList} label="Modèle de rapport" active={is('modele')} onClick={() => go({ page: 'modele' })} />
         <NavItem
           icon={ScrollText}
           label="Comment faire une procédure"
@@ -106,45 +88,6 @@ export function Sidebar() {
           </button>
         ))}
         <NavItem icon={Handshake} label="Mes négociations" active={is('negociations')} onClick={() => go({ page: 'negociations' })} />
-        <NavItem icon={BookOpen} label="Comment négocier" active={is('nego-guide')} onClick={() => go({ page: 'nego-guide' })} />
-
-        <div className="nav-section">Opérations</div>
-        <NavItem icon={MapIcon} label="Table de briefing" active={is('operations') || is('operation')} onClick={() => go({ page: 'operations' })} />
-
-        <div className="nav-section">Enquêtes</div>
-        <NavItem icon={Network} label="Tableaux d’enquête" active={is('enquetes') || is('enquete')} onClick={() => go({ page: 'enquetes' })} />
-
-        <div className="nav-section">Formations</div>
-        <NavItem
-          icon={ShieldCheck}
-          label="Les bases du rookie"
-          active={route.page === 'guide' && route.id === 'rookie'}
-          onClick={() => go({ page: 'guide', id: 'rookie' })}
-        />
-        <NavItem
-          icon={Truck}
-          label="Convoi"
-          active={route.page === 'guide' && route.id === 'convoi'}
-          onClick={() => go({ page: 'guide', id: 'convoi' })}
-        />
-        <NavItem
-          icon={BookOpen}
-          label="Unité Mary (MSG)"
-          active={route.page === 'guide' && route.id === 'msg'}
-          onClick={() => go({ page: 'guide', id: 'msg' })}
-        />
-        <NavItem
-          icon={Plane}
-          label="Air Support (ASD)"
-          active={route.page === 'guide' && route.id === 'asd'}
-          onClick={() => go({ page: 'guide', id: 'asd' })}
-        />
-        <NavItem
-          icon={Target}
-          label="PPA — usage de l’arme"
-          active={route.page === 'guide' && route.id === 'ppa'}
-          onClick={() => go({ page: 'guide', id: 'ppa' })}
-        />
 
         <div className="nav-section">Registre</div>
         <NavItem icon={Crosshair} label="Répertoire armes" active={is('armes')} onClick={() => go({ page: 'armes' })} />
